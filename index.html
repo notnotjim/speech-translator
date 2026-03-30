@@ -20,12 +20,58 @@
   .note { margin-top: 1.5rem; font-size: 0.85rem; color: #666; max-width: 400px; text-align: center; line-height: 1.5; }
   .translator-screen { display: none; height: 100vh; flex-direction: column; }
   .translator-screen.active { display: flex; }
-  .panels { flex: 1; display: flex; flex-direction: row; }
-  .panel { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 3rem 4rem; position: relative; }
+  .panels { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
+  .panel { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
   .panel:first-child { border-right: 1px solid #222; }
-  .panel-lang { position: absolute; top: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: 500; color: #555; text-transform: uppercase; letter-spacing: 0.15em; }
-  .panel-text { font-size: 3rem; font-weight: 300; line-height: 1.4; text-align: center; max-width: 90%; word-wrap: break-word; transition: opacity 0.3s ease; }
-  .panel-text.placeholder { color: #333; font-size: 1.8rem; }
+  .panel-lang { position: absolute; top: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: 500; color: #555; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
+  
+  /* Scrolling caption container - aligned to bottom */
+  .caption-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 3.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 1rem 3rem 2rem;
+    overflow: hidden;
+    /* Fade mask at top so old lines dissolve upward */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%);
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%);
+  }
+
+  .caption-line {
+    font-size: 2.4rem;
+    font-weight: 300;
+    line-height: 1.5;
+    text-align: center;
+    padding: 0.3rem 0;
+    animation: slideUp 0.4s ease-out;
+    flex-shrink: 0;
+  }
+
+  .caption-line.interim {
+    opacity: 0.5;
+  }
+
+  .caption-line.final {
+    opacity: 1;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .placeholder-text {
+    font-size: 1.8rem;
+    color: #333;
+    text-align: center;
+    font-weight: 300;
+  }
+
   .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-top: 1px solid #222; background: #0d0d0d; }
   .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #333; transition: background 0.3s; }
   .mic-dot.listening { background: #e74c3c; animation: pulse 1.5s ease infinite; }
@@ -88,11 +134,15 @@
   <div class="panels">
     <div class="panel">
       <div class="panel-lang" id="panelLang1"></div>
-      <div class="panel-text placeholder" id="panelText1">Waiting for speech...</div>
+      <div class="caption-container" id="captions1">
+        <div class="placeholder-text" id="ph1">Waiting for speech...</div>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-lang" id="panelLang2"></div>
-      <div class="panel-text placeholder" id="panelText2">Waiting for speech...</div>
+      <div class="caption-container" id="captions2">
+        <div class="placeholder-text" id="ph2">Waiting for speech...</div>
+      </div>
     </div>
   </div>
   <div class="status-bar">
@@ -102,28 +152,66 @@
   </div>
 </div>
 <script>
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recog = null, isRunning = false, currentListening = 1;
-let lang1Config = {}, lang2Config = {}, debounceTimer = null, interimTimer = null;
-let switchPending = false;
+var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+var recog = null, isRunning = false, currentListening = 1;
+var lang1Config = {}, lang2Config = {}, debounceTimer = null, interimTimer = null;
+var switchPending = false;
+var MAX_LINES = 6;
 
 function getSelectedLang(s) {
-  const o = s.options[s.selectedIndex];
+  var o = s.options[s.selectedIndex];
   return { speechCode: o.value, translateCode: o.dataset.code, name: o.dataset.name };
 }
 
 async function translateText(text, toCode) {
   try {
-    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + toCode + '&dt=t&q=' + encodeURIComponent(text));
-    const d = await r.json();
+    var r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + toCode + '&dt=t&q=' + encodeURIComponent(text));
+    var d = await r.json();
     return d[0].map(function(s) { return s[0]; }).join('') || text;
   } catch(e) { return text; }
 }
 
-function getOrigPanel() { return document.getElementById(currentListening === 1 ? 'panelText1' : 'panelText2'); }
-function getTransPanel() { return document.getElementById(currentListening === 1 ? 'panelText2' : 'panelText1'); }
+function getOrigContainer() { return document.getElementById(currentListening === 1 ? 'captions1' : 'captions2'); }
+function getTransContainer() { return document.getElementById(currentListening === 1 ? 'captions2' : 'captions1'); }
 function getCurrentConfig() { return currentListening === 1 ? lang1Config : lang2Config; }
 function getOtherConfig() { return currentListening === 1 ? lang2Config : lang1Config; }
+
+function addLine(container, text, cssClass) {
+  // Remove placeholder if present
+  var ph = container.querySelector('.placeholder-text');
+  if (ph) ph.remove();
+
+  // Remove any existing interim line
+  var existing = container.querySelector('.interim');
+  if (existing) existing.remove();
+
+  var line = document.createElement('div');
+  line.className = 'caption-line ' + cssClass;
+  line.textContent = text;
+  container.appendChild(line);
+
+  // Trim old lines beyond MAX_LINES
+  var lines = container.querySelectorAll('.caption-line');
+  while (lines.length > MAX_LINES) {
+    lines[0].remove();
+    lines = container.querySelectorAll('.caption-line');
+  }
+}
+
+function updateInterim(container, text) {
+  var ph = container.querySelector('.placeholder-text');
+  if (ph) ph.remove();
+
+  var existing = container.querySelector('.interim');
+  if (existing) {
+    existing.textContent = text;
+  } else {
+    var line = document.createElement('div');
+    line.className = 'caption-line interim';
+    line.textContent = text;
+    container.appendChild(line);
+  }
+}
 
 function attachRecogHandlers() {
   recog.onresult = function(event) {
@@ -132,35 +220,39 @@ function attachRecogHandlers() {
       var t = event.results[i][0].transcript;
       if (event.results[i].isFinal) { newFinal += t; } else { interim += t; }
     }
-    var origPanel = getOrigPanel(), transPanel = getTransPanel();
+    var origContainer = getOrigContainer();
+    var transContainer = getTransContainer();
     var toCode = getOtherConfig().translateCode;
-    var displayText = newFinal || interim;
-    if (displayText.trim()) {
-      origPanel.textContent = displayText;
-      origPanel.classList.remove('placeholder');
-      document.getElementById('micDot').classList.add('listening');
-      document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
-    }
+
+    document.getElementById('micDot').classList.add('listening');
+    document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
+
+    // Show interim original text (updates in place)
     if (interim.trim()) {
+      updateInterim(origContainer, interim);
+
       clearTimeout(interimTimer);
       interimTimer = setTimeout(function() {
         translateText(interim.trim(), toCode).then(function(translated) {
           if (!newFinal) {
-            transPanel.textContent = translated;
-            transPanel.classList.remove('placeholder');
-            transPanel.style.opacity = '0.6';
+            updateInterim(transContainer, translated);
           }
         });
       }, 100);
     }
+
+    // Final result: commit as permanent line
     if (newFinal.trim()) {
       clearTimeout(interimTimer);
       clearTimeout(debounceTimer);
+
+      // Remove interim and add final line for original
+      addLine(origContainer, newFinal, 'final');
+
+      // Translate and add final line for translation
       debounceTimer = setTimeout(function() {
         translateText(newFinal.trim(), toCode).then(function(translated) {
-          transPanel.textContent = translated;
-          transPanel.classList.remove('placeholder');
-          transPanel.style.opacity = '1';
+          addLine(transContainer, translated, 'final');
         });
       }, 50);
     }
@@ -199,10 +291,13 @@ function startTranslator() {
   }
   document.getElementById('panelLang1').textContent = lang1Config.name;
   document.getElementById('panelLang2').textContent = lang2Config.name;
-  document.getElementById('panelText1').textContent = 'Waiting for speech...';
-  document.getElementById('panelText2').textContent = 'Waiting for speech...';
-  document.getElementById('panelText1').classList.add('placeholder');
-  document.getElementById('panelText2').classList.add('placeholder');
+
+  // Reset caption containers
+  var c1 = document.getElementById('captions1');
+  var c2 = document.getElementById('captions2');
+  c1.innerHTML = '<div class="placeholder-text" id="ph1">Waiting for speech...</div>';
+  c2.innerHTML = '<div class="placeholder-text" id="ph2">Waiting for speech...</div>';
+
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('translatorScreen').classList.add('active');
   isRunning = true;
