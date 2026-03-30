@@ -5,312 +5,430 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Speech Translator</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Sans:wght@300;400;500&display=swap');
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Noto Sans', 'Noto Sans JP', sans-serif; background: #0a0a0a; color: #f0f0f0; min-height: 100vh; overflow: hidden; }
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;600&display=swap');
 
-  .setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
-  .setup-screen h1 { font-size: 2.4rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
-  .setup-screen p { font-size: 1.1rem; color: #888; margin-bottom: 3rem; }
-  .lang-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
-  .lang-row label { font-size: 1rem; color: #aaa; width: 140px; text-align: right; }
-  select { font-family: inherit; font-size: 1.1rem; padding: 0.7rem 1.2rem; background: #1a1a1a; color: #f0f0f0; border: 1px solid #333; border-radius: 8px; width: 260px; cursor: pointer; outline: none; }
-  .start-btn { margin-top: 2rem; font-family: inherit; font-size: 1.2rem; font-weight: 500; padding: 1rem 3rem; background: #e8e8e8; color: #0a0a0a; border: none; border-radius: 12px; cursor: pointer; }
-  .start-btn:hover { background: #fff; }
-  .note { margin-top: 1.5rem; font-size: 0.85rem; color: #666; max-width: 400px; text-align: center; line-height: 1.5; }
-  .error-msg { color: #e74c3c; font-size: 0.95rem; margin-top: 1rem; text-align: center; }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-  .translator-screen { display: none; height: 100vh; flex-direction: column; }
-  .translator-screen.active { display: flex; }
-  .panels { flex: 1; display: flex; flex-direction: row; }
-  .panel { flex: 1; position: relative; overflow: hidden; }
-  .panel:first-child { border-right: 1px solid #1a1a1a; }
-  .panel-lang { position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); font-size: 0.85rem; font-weight: 500; color: #444; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
+  :root {
+    --bg: #050505;
+    --live: #ffffff;
+    --prev: #606060;
+    --dim: #252525;
+    --accent: #c0392b;
+  }
 
-  /* Fixed centre line for real-time text */
-  .live-line {
+  body {
+    font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--live);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ═══ SETUP ═══ */
+  .setup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 2rem;
+  }
+  .setup h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.3rem;
+  }
+  .setup .sub {
+    font-size: 0.95rem;
+    color: #555;
+    margin-bottom: 3rem;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+  .row label {
+    font-size: 0.9rem;
+    color: #888;
+    width: 110px;
+    text-align: right;
+  }
+  select {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 0.6rem 1rem;
+    background: #111;
+    color: #ccc;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    width: 220px;
+    outline: none;
+  }
+  .go {
+    margin-top: 2rem;
+    font-family: inherit;
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding: 0.9rem 2.5rem;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .go:hover { background: #e0e0e0; }
+  .hint {
+    margin-top: 1.2rem;
+    font-size: 0.75rem;
+    color: #444;
+    max-width: 340px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .err { color: var(--accent); font-size: 0.85rem; margin-top: 0.8rem; }
+
+  /* ═══ TRANSLATOR ═══ */
+  .translator {
+    display: none;
+    height: 100vh;
+    flex-direction: column;
+  }
+  .translator.on { display: flex; }
+
+  .cols {
+    flex: 1;
+    display: flex;
+  }
+
+  .col {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .col + .col { border-left: 1px solid #151515; }
+
+  /* Language label */
+  .lang-label {
+    position: absolute;
+    top: 1.8rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  /* ── Previous line: sits above centre, small grey, fades ── */
+  .prev {
+    position: absolute;
+    bottom: calc(50% + 4rem);
+    width: 80%;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: var(--prev);
+    line-height: 1.4;
+    max-height: 4em;
+    overflow: hidden;
+    transition: opacity 1.2s ease;
+    opacity: 1;
+  }
+  .prev.hide { opacity: 0; }
+  .prev:empty { display: none; }
+
+  /* ── Live line: dead centre, max ~3 visual lines, bottom-aligned ── */
+  .live-wrap {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 90%;
-    text-align: center;
-    font-size: 2.4rem;
-    font-weight: 500;
-    color: #ffffff;
-    line-height: 1.35;
-    z-index: 1;
-  }
-  .live-line.waiting {
-    color: #1a1a1a;
-    font-weight: 300;
-  }
-
-  /* History lines sit above the centre, stacking upward */
-  .history {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(50% + 2.5rem);
+    width: 82%;
+    max-height: 4.5em;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0 2.5rem;
-    overflow: hidden;
   }
 
-  .hist-line {
+  .live {
     text-align: center;
-    font-size: 2.4rem;
-    font-weight: 400;
-    color: #888;
-    line-height: 1.35;
-    width: 90%;
-    transition: opacity 1s ease;
-    opacity: 1;
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: var(--live);
+    line-height: 1.45;
   }
-  .hist-line.gone { opacity: 0; }
+  .live.idle {
+    font-weight: 300;
+    color: var(--dim);
+    font-size: 1.2rem;
+  }
 
-  .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.8rem; border-top: 1px solid #181818; background: #0a0a0a; }
-  .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #222; }
-  .mic-dot.on { background: #e74c3c; animation: pulse 1.5s ease infinite; }
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 50% { box-shadow: 0 0 0 8px rgba(231,76,60,0); } }
-  .status-text { font-size: 0.8rem; color: #444; }
-  .stop-btn { font-family: inherit; font-size: 0.75rem; padding: 0.3rem 0.8rem; background: none; color: #555; border: 1px solid #2a2a2a; border-radius: 5px; cursor: pointer; margin-left: 0.5rem; }
+  /* ═══ STATUS BAR ═══ */
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 0.6rem;
+    background: var(--bg);
+    border-top: 1px solid #111;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1a1a1a;
+  }
+  .dot.on {
+    background: var(--accent);
+    animation: glow 1.8s ease infinite;
+  }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.35); }
+    50% { box-shadow: 0 0 0 6px rgba(192,57,43,0); }
+  }
+  .bar span { font-size: 0.7rem; color: #333; }
+  .bar button {
+    font-family: inherit;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.6rem;
+    background: none;
+    color: #444;
+    border: 1px solid #222;
+    border-radius: 4px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
 
-<div class="setup-screen" id="setup">
+<div class="setup" id="S">
   <h1>Live Speech Translator</h1>
-  <p>Dual-language live translation for speeches</p>
-  <div class="lang-row"><label>Language 1</label>
-    <select id="lang1">
-      <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
-      <option value="en-US" data-code="en" data-name="English">English (US)</option>
-      <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
-      <option value="zh-CN" data-code="zh" data-name="中文">Chinese</option>
-      <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
-      <option value="fr-FR" data-code="fr" data-name="Français">French</option>
-      <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
-      <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
-      <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
-      <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
+  <div class="sub">Dual-language subtitles for live speeches</div>
+  <div class="row"><label>Language 1</label>
+    <select id="L1">
+      <option value="en-GB" data-c="en" data-n="English">English (UK)</option>
+      <option value="en-US" data-c="en" data-n="English">English (US)</option>
+      <option value="ja" data-c="ja" data-n="日本語">Japanese</option>
+      <option value="zh-CN" data-c="zh" data-n="中文">Chinese</option>
+      <option value="ko-KR" data-c="ko" data-n="한국어">Korean</option>
+      <option value="fr-FR" data-c="fr" data-n="Français">French</option>
+      <option value="de-DE" data-c="de" data-n="Deutsch">German</option>
+      <option value="es-ES" data-c="es" data-n="Español">Spanish</option>
+      <option value="it-IT" data-c="it" data-n="Italiano">Italian</option>
+      <option value="pt-BR" data-c="pt" data-n="Português">Portuguese</option>
     </select>
   </div>
-  <div class="lang-row"><label>Language 2</label>
-    <select id="lang2">
-      <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
-      <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
-      <option value="en-US" data-code="en" data-name="English">English (US)</option>
-      <option value="zh-CN" data-code="zh" data-name="中文">Chinese</option>
-      <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
-      <option value="fr-FR" data-code="fr" data-name="Français">French</option>
-      <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
-      <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
-      <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
-      <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
+  <div class="row"><label>Language 2</label>
+    <select id="L2">
+      <option value="ja" data-c="ja" data-n="日本語">Japanese</option>
+      <option value="en-GB" data-c="en" data-n="English">English (UK)</option>
+      <option value="en-US" data-c="en" data-n="English">English (US)</option>
+      <option value="zh-CN" data-c="zh" data-n="中文">Chinese</option>
+      <option value="ko-KR" data-c="ko" data-n="한국어">Korean</option>
+      <option value="fr-FR" data-c="fr" data-n="Français">French</option>
+      <option value="de-DE" data-c="de" data-n="Deutsch">German</option>
+      <option value="es-ES" data-c="es" data-n="Español">Spanish</option>
+      <option value="it-IT" data-c="it" data-n="Italiano">Italian</option>
+      <option value="pt-BR" data-c="pt" data-n="Português">Portuguese</option>
     </select>
   </div>
-  <button class="start-btn" onclick="go()">Start Listening</button>
-  <div class="note">Chrome only. Press Space to switch speaker language.</div>
-  <div class="error-msg" id="err"></div>
+  <button class="go" onclick="start()">Start</button>
+  <div class="hint">Chrome only · Space to switch speaker · HDMI to projector</div>
+  <div class="err" id="E"></div>
 </div>
 
-<div class="translator-screen" id="trans">
-  <div class="panels">
-    <div class="panel">
-      <div class="panel-lang" id="label1"></div>
-      <div class="history" id="hist1"></div>
-      <div class="live-line waiting" id="live1">Waiting for speech...</div>
+<div class="translator" id="T">
+  <div class="cols">
+    <div class="col">
+      <div class="lang-label" id="N1"></div>
+      <div class="prev" id="P1"></div>
+      <div class="live-wrap"><div class="live idle" id="A1">Waiting for speech…</div></div>
     </div>
-    <div class="panel">
-      <div class="panel-lang" id="label2"></div>
-      <div class="history" id="hist2"></div>
-      <div class="live-line waiting" id="live2">Waiting for speech...</div>
+    <div class="col">
+      <div class="lang-label" id="N2"></div>
+      <div class="prev" id="P2"></div>
+      <div class="live-wrap"><div class="live idle" id="A2">Waiting for speech…</div></div>
     </div>
   </div>
-  <div class="status-bar">
-    <div class="mic-dot" id="dot"></div>
-    <span class="status-text" id="stat">...</span>
-    <button class="stop-btn" onclick="stop()">Stop</button>
+  <div class="bar">
+    <div class="dot" id="D"></div>
+    <span id="ST">…</span>
+    <button onclick="end()">Stop</button>
   </div>
 </div>
 
 <script>
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-var rec, on = false, cl = 1, l1, l2, dt, it, sp = false;
-var lastSnapshotText = '';
-var snapshotInterval = null;
-var MAX_HIST = 3;
+var r, go = false, side = 1, c1, c2, sp = false;
+var iT, dT, snapT, lastSnap = '';
 
-function gl(s) { var o = s.options[s.selectedIndex]; return { sc: o.value, tc: o.dataset.code, nm: o.dataset.name }; }
-
-async function tr(t, to) {
-  try { var r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+to+'&dt=t&q='+encodeURIComponent(t));
-    var d = await r.json(); return d[0].map(function(x){return x[0]}).join('')||t; } catch(e) { return t; }
+function gl(s) {
+  var o = s.options[s.selectedIndex];
+  return { s: o.value, t: o.dataset.c, n: o.dataset.n };
 }
 
-function oLive() { return document.getElementById(cl===1?'live1':'live2'); }
-function tLive() { return document.getElementById(cl===1?'live2':'live1'); }
-function oHist() { return document.getElementById(cl===1?'hist1':'hist2'); }
-function tHist() { return document.getElementById(cl===1?'hist2':'hist1'); }
-function cc() { return cl===1?l1:l2; }
-function oc() { return cl===1?l2:l1; }
-
-function addToHistory(histEl, text) {
-  var d = document.createElement('div');
-  d.className = 'hist-line';
-  d.textContent = text;
-  histEl.appendChild(d);
-
-  // Enforce max 3 — immediately remove oldest if over
-  var lines = histEl.querySelectorAll('.hist-line:not(.gone)');
-  while (lines.length > MAX_HIST) {
-    lines[0].remove();
-    lines = histEl.querySelectorAll('.hist-line:not(.gone)');
-  }
-
-  // Self-destruct: fade out after 4s, remove at 5s
-  setTimeout(function() { d.classList.add('gone'); }, 4000);
-  setTimeout(function() { if (d.parentNode) d.remove(); }, 5000);
+async function tx(t, to) {
+  try {
+    var r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + to + '&dt=t&q=' + encodeURIComponent(t));
+    var d = await r.json();
+    return d[0].map(function(x) { return x[0]; }).join('') || t;
+  } catch(e) { return t; }
 }
 
-// Push current live text into history, clear live line
-function promoteLive(liveEl, histEl) {
-  var text = liveEl.textContent.trim();
-  if (!text || liveEl.classList.contains('waiting')) return;
-  addToHistory(histEl, text);
+/* Getters based on which side is speaking */
+function oA() { return document.getElementById(side === 1 ? 'A1' : 'A2'); }
+function tA() { return document.getElementById(side === 1 ? 'A2' : 'A1'); }
+function oP() { return document.getElementById(side === 1 ? 'P1' : 'P2'); }
+function tP() { return document.getElementById(side === 1 ? 'P2' : 'P1'); }
+function cur() { return side === 1 ? c1 : c2; }
+function oth() { return side === 1 ? c2 : c1; }
+
+/* Move live text → previous (one slot only, old one vanishes) */
+function pushPrev(prevEl, text) {
+  if (!text) return;
+  prevEl.textContent = text;
+  prevEl.classList.remove('hide');
+  /* Auto-fade after 4s */
+  if (prevEl._t) clearTimeout(prevEl._t);
+  prevEl._t = setTimeout(function() {
+    prevEl.classList.add('hide');
+    setTimeout(function() { prevEl.textContent = ''; prevEl.classList.remove('hide'); }, 1300);
+  }, 4000);
 }
 
-function forceSnapshot() {
-  var ol = oLive(), tl = tLive(), oh = oHist(), th = tHist(), to = oc().tc;
-  var text = ol.textContent.trim();
-  if (!text || ol.classList.contains('waiting') || text === lastSnapshotText) return;
-  lastSnapshotText = text;
-
-  // Snapshot original side
-  addToHistory(oh, text);
-
-  // Snapshot translation side
-  var transText = tl.textContent.trim();
-  if (transText && !tl.classList.contains('waiting')) {
-    addToHistory(th, transText);
-  }
+/* Snapshot: freeze current live text as "previous", keep live updating */
+function snap() {
+  var a = oA(), p = oP(), ta = tA(), tp = tP(), to = oth().t;
+  var txt = a.textContent.trim();
+  if (!txt || a.classList.contains('idle') || txt === lastSnap) return;
+  lastSnap = txt;
+  pushPrev(p, txt);
+  /* Also snapshot translation */
+  var ttxt = ta.textContent.trim();
+  if (ttxt && !ta.classList.contains('idle')) pushPrev(tp, ttxt);
 }
 
-function go() {
-  if (!SR) { document.getElementById('err').textContent = 'Use Chrome.'; return; }
-  l1 = gl(document.getElementById('lang1'));
-  l2 = gl(document.getElementById('lang2'));
-  if (l1.tc === l2.tc) { document.getElementById('err').textContent = 'Pick two different languages.'; return; }
+function start() {
+  if (!SR) { document.getElementById('E').textContent = 'Use Chrome.'; return; }
+  c1 = gl(document.getElementById('L1'));
+  c2 = gl(document.getElementById('L2'));
+  if (c1.t === c2.t) { document.getElementById('E').textContent = 'Pick two different languages.'; return; }
 
-  document.getElementById('label1').textContent = l1.nm;
-  document.getElementById('label2').textContent = l2.nm;
-  document.getElementById('hist1').innerHTML = '';
-  document.getElementById('hist2').innerHTML = '';
-  document.getElementById('live1').textContent = 'Waiting for speech...';
-  document.getElementById('live1').className = 'live-line waiting';
-  document.getElementById('live2').textContent = 'Waiting for speech...';
-  document.getElementById('live2').className = 'live-line waiting';
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('trans').classList.add('active');
+  document.getElementById('N1').textContent = c1.n;
+  document.getElementById('N2').textContent = c2.n;
+  document.getElementById('P1').textContent = '';
+  document.getElementById('P2').textContent = '';
+  document.getElementById('A1').textContent = 'Waiting for speech\u2026';
+  document.getElementById('A1').className = 'live idle';
+  document.getElementById('A2').textContent = 'Waiting for speech\u2026';
+  document.getElementById('A2').className = 'live idle';
+  document.getElementById('S').style.display = 'none';
+  document.getElementById('T').classList.add('on');
 
-  on = true; cl = 1; sp = false; lastSnapshotText = '';
-  rec = new SR();
-  rec.lang = l1.sc;
-  rec.interimResults = true;
-  rec.continuous = true;
+  go = true; side = 1; sp = false; lastSnap = '';
 
-  snapshotInterval = setInterval(forceSnapshot, 3000);
+  r = new SR();
+  r.lang = c1.s;
+  r.interimResults = true;
+  r.continuous = true;
 
-  rec.onresult = function(ev) {
+  /* Snapshot every 3s to prevent live line from becoming a wall of text */
+  snapT = setInterval(snap, 3000);
+
+  r.onresult = function(ev) {
     var im = '', fn = '';
     for (var i = ev.resultIndex; i < ev.results.length; i++) {
       if (ev.results[i].isFinal) fn += ev.results[i][0].transcript;
       else im += ev.results[i][0].transcript;
     }
-    var ol = oLive(), tl = tLive(), oh = oHist(), th = tHist(), to = oc().tc;
-    document.getElementById('dot').classList.add('on');
-    document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch';
 
-    // Interim: update the fixed centre live line
+    var a = oA(), ta = tA(), p = oP(), tp = tP(), to = oth().t;
+    document.getElementById('D').classList.add('on');
+    document.getElementById('ST').textContent = cur().n + ' \u2014 Space to switch';
+
+    /* Interim → update live line */
     if (im.trim()) {
-      ol.textContent = im;
-      ol.className = 'live-line';
-      clearTimeout(it);
-      it = setTimeout(function() {
-        tr(im.trim(), to).then(function(x) {
-          if (!fn) { tl.textContent = x; tl.className = 'live-line'; }
+      a.textContent = im;
+      a.className = 'live';
+      clearTimeout(iT);
+      iT = setTimeout(function() {
+        tx(im.trim(), to).then(function(x) {
+          if (!fn) { ta.textContent = x; ta.className = 'live'; }
         });
       }, 120);
     }
 
-    // Final: push current live to history, set new live text
+    /* Final → push old live to prev, set new live */
     if (fn.trim()) {
-      clearTimeout(it); clearTimeout(dt);
-      lastSnapshotText = '';
+      clearTimeout(iT); clearTimeout(dT);
+      lastSnap = '';
 
-      // Push previous live into history
-      promoteLive(ol, oh);
+      /* Push current live into previous */
+      var old = a.textContent.trim();
+      if (old && !a.classList.contains('idle')) pushPrev(p, old);
 
-      // Set new live
-      ol.textContent = fn;
-      ol.className = 'live-line';
+      a.textContent = fn;
+      a.className = 'live';
 
-      dt = setTimeout(function() {
-        // Push previous translation live into history
-        promoteLive(tl, th);
+      dT = setTimeout(function() {
+        var oldT = ta.textContent.trim();
+        if (oldT && !ta.classList.contains('idle')) pushPrev(tp, oldT);
 
-        tr(fn.trim(), to).then(function(x) {
-          tl.textContent = x;
-          tl.className = 'live-line';
+        tx(fn.trim(), to).then(function(x) {
+          ta.textContent = x;
+          ta.className = 'live';
         });
       }, 50);
     }
   };
 
-  rec.onerror = function(ev) {
+  r.onerror = function(ev) {
     if (ev.error === 'no-speech') {
-      document.getElementById('dot').classList.remove('on');
-      document.getElementById('stat').textContent = 'Waiting... (' + cc().nm + ')';
+      document.getElementById('D').classList.remove('on');
+      document.getElementById('ST').textContent = 'Waiting\u2026 (' + cur().n + ')';
     }
   };
 
-  rec.onend = function() {
-    if (!on) return;
-    if (sp) { sp = false; rec.lang = cc().sc; document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch'; }
-    try { rec.start(); } catch(e) {}
+  r.onend = function() {
+    if (!go) return;
+    if (sp) { sp = false; r.lang = cur().s; document.getElementById('ST').textContent = cur().n + ' \u2014 Space to switch'; }
+    try { r.start(); } catch(e) {}
   };
 
-  rec.start();
-  document.getElementById('dot').classList.add('on');
-  document.getElementById('stat').textContent = l1.nm + ' \u2014 Space to switch';
-  document.addEventListener('keydown', kh);
+  r.start();
+  document.getElementById('D').classList.add('on');
+  document.getElementById('ST').textContent = c1.n + ' \u2014 Space to switch';
+  document.addEventListener('keydown', key);
 }
 
-function kh(e) {
-  if (e.code === 'Space' && on) {
+function key(e) {
+  if (e.code === 'Space' && go) {
     e.preventDefault();
-    cl = cl === 1 ? 2 : 1;
-    sp = true;
-    lastSnapshotText = '';
-    document.getElementById('stat').textContent = 'Switching...';
-    try { rec.stop(); } catch(e) {}
+    side = side === 1 ? 2 : 1;
+    sp = true; lastSnap = '';
+    document.getElementById('ST').textContent = 'Switching\u2026';
+    try { r.stop(); } catch(e) {}
   }
 }
 
-function stop() {
-  on = false;
-  if (snapshotInterval) { clearInterval(snapshotInterval); snapshotInterval = null; }
-  if (rec) try { rec.stop(); } catch(e) {}
-  rec = null;
-  document.removeEventListener('keydown', kh);
-  document.getElementById('trans').classList.remove('active');
-  document.getElementById('setup').style.display = 'flex';
-  document.getElementById('dot').classList.remove('on');
+function end() {
+  go = false;
+  if (snapT) clearInterval(snapT);
+  if (r) try { r.stop(); } catch(e) {}
+  r = null;
+  document.removeEventListener('keydown', key);
+  document.getElementById('T').classList.remove('on');
+  document.getElementById('S').style.display = 'flex';
+  document.getElementById('D').classList.remove('on');
 }
 </script>
 </body>
