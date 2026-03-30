@@ -24,52 +24,76 @@
   .panel { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
   .panel:first-child { border-right: 1px solid #222; }
   .panel-lang { position: absolute; top: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: 500; color: #555; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
-  
-  /* Scrolling caption container - aligned to bottom */
+
+  /* Caption layout: history on top, active in center */
   .caption-container {
     position: absolute;
-    bottom: 0;
+    top: 3.5rem;
     left: 0;
     right: 0;
-    top: 3.5rem;
+    bottom: 0;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    padding: 1rem 3rem 2rem;
+    padding: 1rem 2.5rem;
     overflow: hidden;
-    /* Fade mask at top so old lines dissolve upward */
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%);
-    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%);
   }
 
-  .caption-line {
-    font-size: 2.4rem;
+  /* Previous lines area - top portion */
+  .history-area {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #1a1a1a;
+    min-height: 0;
+  }
+
+  .history-line {
+    font-size: 1.3rem;
     font-weight: 300;
-    line-height: 1.5;
+    line-height: 1.4;
     text-align: center;
-    padding: 0.3rem 0;
-    animation: slideUp 0.4s ease-out;
-    flex-shrink: 0;
+    color: #444;
+    transition: opacity 0.5s ease;
   }
 
-  .caption-line.interim {
-    opacity: 0.5;
+  .history-line:last-child {
+    color: #555;
   }
 
-  .caption-line.final {
-    opacity: 1;
+  /* Active line area - centered in remaining space */
+  .active-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0;
   }
 
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
+  .active-text {
+    font-size: 2.8rem;
+    font-weight: 300;
+    line-height: 1.4;
+    text-align: center;
+    max-width: 95%;
+    word-wrap: break-word;
+    color: #ffffff;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .active-text.interim {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .active-text.empty {
+    color: #222;
+    font-size: 1.6rem;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-
-  .placeholder-text {
-    font-size: 1.8rem;
-    color: #333;
-    text-align: center;
-    font-weight: 300;
   }
 
   .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-top: 1px solid #222; background: #0d0d0d; }
@@ -134,14 +158,20 @@
   <div class="panels">
     <div class="panel">
       <div class="panel-lang" id="panelLang1"></div>
-      <div class="caption-container" id="captions1">
-        <div class="placeholder-text" id="ph1">Waiting for speech...</div>
+      <div class="caption-container">
+        <div class="history-area" id="history1"></div>
+        <div class="active-area">
+          <div class="active-text empty" id="active1">Waiting for speech...</div>
+        </div>
       </div>
     </div>
     <div class="panel">
       <div class="panel-lang" id="panelLang2"></div>
-      <div class="caption-container" id="captions2">
-        <div class="placeholder-text" id="ph2">Waiting for speech...</div>
+      <div class="caption-container">
+        <div class="history-area" id="history2"></div>
+        <div class="active-area">
+          <div class="active-text empty" id="active2">Waiting for speech...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -156,7 +186,7 @@ var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogniti
 var recog = null, isRunning = false, currentListening = 1;
 var lang1Config = {}, lang2Config = {}, debounceTimer = null, interimTimer = null;
 var switchPending = false;
-var MAX_LINES = 6;
+var MAX_HISTORY = 3;
 
 function getSelectedLang(s) {
   var o = s.options[s.selectedIndex];
@@ -171,45 +201,24 @@ async function translateText(text, toCode) {
   } catch(e) { return text; }
 }
 
-function getOrigContainer() { return document.getElementById(currentListening === 1 ? 'captions1' : 'captions2'); }
-function getTransContainer() { return document.getElementById(currentListening === 1 ? 'captions2' : 'captions1'); }
+function getOrigActive() { return document.getElementById(currentListening === 1 ? 'active1' : 'active2'); }
+function getTransActive() { return document.getElementById(currentListening === 1 ? 'active2' : 'active1'); }
+function getOrigHistory() { return document.getElementById(currentListening === 1 ? 'history1' : 'history2'); }
+function getTransHistory() { return document.getElementById(currentListening === 1 ? 'history2' : 'history1'); }
 function getCurrentConfig() { return currentListening === 1 ? lang1Config : lang2Config; }
 function getOtherConfig() { return currentListening === 1 ? lang2Config : lang1Config; }
 
-function addLine(container, text, cssClass) {
-  // Remove placeholder if present
-  var ph = container.querySelector('.placeholder-text');
-  if (ph) ph.remove();
-
-  // Remove any existing interim line
-  var existing = container.querySelector('.interim');
-  if (existing) existing.remove();
-
+function pushToHistory(historyEl, text) {
   var line = document.createElement('div');
-  line.className = 'caption-line ' + cssClass;
+  line.className = 'history-line';
   line.textContent = text;
-  container.appendChild(line);
+  historyEl.appendChild(line);
 
-  // Trim old lines beyond MAX_LINES
-  var lines = container.querySelectorAll('.caption-line');
-  while (lines.length > MAX_LINES) {
+  // Keep only last MAX_HISTORY lines
+  var lines = historyEl.querySelectorAll('.history-line');
+  while (lines.length > MAX_HISTORY) {
     lines[0].remove();
-    lines = container.querySelectorAll('.caption-line');
-  }
-}
-
-function updateInterim(container, text) {
-  var ph = container.querySelector('.placeholder-text');
-  if (ph) ph.remove();
-
-  var existing = container.querySelector('.interim');
-  if (existing) {
-    existing.textContent = text;
-  } else {
-    var line = document.createElement('div');
-    line.className = 'caption-line interim';
-    line.textContent = text;
-    container.appendChild(line);
+    lines = historyEl.querySelectorAll('.history-line');
   }
 }
 
@@ -220,39 +229,57 @@ function attachRecogHandlers() {
       var t = event.results[i][0].transcript;
       if (event.results[i].isFinal) { newFinal += t; } else { interim += t; }
     }
-    var origContainer = getOrigContainer();
-    var transContainer = getTransContainer();
+    var origActive = getOrigActive();
+    var transActive = getTransActive();
+    var origHistory = getOrigHistory();
+    var transHistory = getTransHistory();
     var toCode = getOtherConfig().translateCode;
 
     document.getElementById('micDot').classList.add('listening');
     document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
 
-    // Show interim original text (updates in place)
+    // Interim: show in active area, slightly faded
     if (interim.trim()) {
-      updateInterim(origContainer, interim);
+      origActive.textContent = interim;
+      origActive.className = 'active-text interim';
 
       clearTimeout(interimTimer);
       interimTimer = setTimeout(function() {
         translateText(interim.trim(), toCode).then(function(translated) {
           if (!newFinal) {
-            updateInterim(transContainer, translated);
+            transActive.textContent = translated;
+            transActive.className = 'active-text interim';
           }
         });
       }, 100);
     }
 
-    // Final result: commit as permanent line
+    // Final: move current active to history, set new active
     if (newFinal.trim()) {
       clearTimeout(interimTimer);
       clearTimeout(debounceTimer);
 
-      // Remove interim and add final line for original
-      addLine(origContainer, newFinal, 'final');
+      // Push previous active text to history (if it had real content)
+      var prevOrigText = origActive.textContent;
+      if (prevOrigText && !origActive.classList.contains('empty') && !origActive.classList.contains('interim')) {
+        pushToHistory(origHistory, prevOrigText);
+      }
 
-      // Translate and add final line for translation
+      // Set new active original
+      origActive.textContent = newFinal;
+      origActive.className = 'active-text';
+
+      // Translate
       debounceTimer = setTimeout(function() {
         translateText(newFinal.trim(), toCode).then(function(translated) {
-          addLine(transContainer, translated, 'final');
+          // Push previous translation to history
+          var prevTransText = transActive.textContent;
+          if (prevTransText && !transActive.classList.contains('empty') && !transActive.classList.contains('interim')) {
+            pushToHistory(transHistory, prevTransText);
+          }
+
+          transActive.textContent = translated;
+          transActive.className = 'active-text';
         });
       }, 50);
     }
@@ -291,12 +318,12 @@ function startTranslator() {
   }
   document.getElementById('panelLang1').textContent = lang1Config.name;
   document.getElementById('panelLang2').textContent = lang2Config.name;
-
-  // Reset caption containers
-  var c1 = document.getElementById('captions1');
-  var c2 = document.getElementById('captions2');
-  c1.innerHTML = '<div class="placeholder-text" id="ph1">Waiting for speech...</div>';
-  c2.innerHTML = '<div class="placeholder-text" id="ph2">Waiting for speech...</div>';
+  document.getElementById('history1').innerHTML = '';
+  document.getElementById('history2').innerHTML = '';
+  document.getElementById('active1').textContent = 'Waiting for speech...';
+  document.getElementById('active1').className = 'active-text empty';
+  document.getElementById('active2').textContent = 'Waiting for speech...';
+  document.getElementById('active2').className = 'active-text empty';
 
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('translatorScreen').classList.add('active');
