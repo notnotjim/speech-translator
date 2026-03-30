@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Speech Translator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;500&family=Noto+Sans:wght@300;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans', 'Noto Sans JP', sans-serif; background: #0a0a0a; color: #f0f0f0; min-height: 100vh; overflow: hidden; }
+  .setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
+  .setup-screen h1 { font-size: 2.4rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
+  .setup-screen p { font-size: 1.1rem; color: #888; margin-bottom: 3rem; }
+  .lang-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+  .lang-row label { font-size: 1rem; color: #aaa; width: 140px; text-align: right; }
+  select { font-family: inherit; font-size: 1.1rem; padding: 0.7rem 1.2rem; background: #1a1a1a; color: #f0f0f0; border: 1px solid #333; border-radius: 8px; width: 260px; cursor: pointer; outline: none; }
+  select:focus { border-color: #666; }
+  .start-btn { margin-top: 2rem; font-family: inherit; font-size: 1.2rem; font-weight: 500; padding: 1rem 3rem; background: #e8e8e8; color: #0a0a0a; border: none; border-radius: 12px; cursor: pointer; letter-spacing: 0.03em; transition: background 0.2s; }
+  .start-btn:hover { background: #fff; }
+  .note { margin-top: 1.5rem; font-size: 0.85rem; color: #666; max-width: 400px; text-align: center; line-height: 1.5; }
+  .translator-screen { display: none; height: 100vh; flex-direction: column; }
+  .translator-screen.active { display: flex; }
+  .panels { flex: 1; display: flex; flex-direction: row; }
+  .panel { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 3rem 4rem; position: relative; }
+  .panel:first-child { border-right: 1px solid #222; }
+  .panel-lang { position: absolute; top: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: 500; color: #555; text-transform: uppercase; letter-spacing: 0.15em; }
+  .panel-text { font-size: 3rem; font-weight: 300; line-height: 1.4; text-align: center; max-width: 90%; word-wrap: break-word; transition: opacity 0.3s ease; }
+  .panel-text.placeholder { color: #333; font-size: 1.8rem; }
+  .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-top: 1px solid #222; background: #0d0d0d; }
+  .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #333; transition: background 0.3s; }
+  .mic-dot.listening { background: #e74c3c; animation: pulse 1.5s ease infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(231,76,60,0); } }
+  .status-text { font-size: 0.85rem; color: #555; }
+  .stop-btn { font-family: inherit; font-size: 0.8rem; padding: 0.4rem 1rem; background: transparent; color: #666; border: 1px solid #333; border-radius: 6px; cursor: pointer; margin-left: 1rem; transition: all 0.2s; }
+  .stop-btn:hover { border-color: #888; color: #aaa; }
+  .error-msg { color: #e74c3c; font-size: 0.95rem; margin-top: 1rem; text-align: center; max-width: 500px; }
+</style>
+</head>
+<body>
+<div class="setup-screen" id="setupScreen">
+  <h1>Live Speech Translator</h1>
+  <p>Dual-language live translation for speeches</p>
+  <div class="lang-row">
+    <label>Language 1</label>
+    <select id="lang1">
+      <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
+      <option value="en-US" data-code="en" data-name="English">English (US)</option>
+      <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
+      <option value="zh-CN" data-code="zh" data-name="中文">Chinese (Mandarin)</option>
+      <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
+      <option value="fr-FR" data-code="fr" data-name="Français">French</option>
+      <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
+      <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
+      <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
+      <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
+      <option value="ru-RU" data-code="ru" data-name="Русский">Russian</option>
+      <option value="ar-SA" data-code="ar" data-name="العربية">Arabic</option>
+      <option value="hi-IN" data-code="hi" data-name="हिन्दी">Hindi</option>
+      <option value="th-TH" data-code="th" data-name="ไทย">Thai</option>
+      <option value="vi-VN" data-code="vi" data-name="Tiếng Việt">Vietnamese</option>
+    </select>
+  </div>
+  <div class="lang-row">
+    <label>Language 2</label>
+    <select id="lang2">
+      <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
+      <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
+      <option value="en-US" data-code="en" data-name="English">English (US)</option>
+      <option value="zh-CN" data-code="zh" data-name="中文">Chinese (Mandarin)</option>
+      <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
+      <option value="fr-FR" data-code="fr" data-name="Français">French</option>
+      <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
+      <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
+      <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
+      <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
+      <option value="ru-RU" data-code="ru" data-name="Русский">Russian</option>
+      <option value="ar-SA" data-code="ar" data-name="العربية">Arabic</option>
+      <option value="hi-IN" data-code="hi" data-name="हिन्दी">Hindi</option>
+      <option value="th-TH" data-code="th" data-name="ไทย">Thai</option>
+      <option value="vi-VN" data-code="vi" data-name="Tiếng Việt">Vietnamese</option>
+    </select>
+  </div>
+  <button class="start-btn" onclick="startTranslator()">Start Listening</button>
+  <div class="note">Uses your device microphone. Works best in Chrome. Connect to a screen via HDMI for projection.</div>
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+<div class="translator-screen" id="translatorScreen">
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-lang" id="panelLang1"></div>
+      <div class="panel-text placeholder" id="panelText1">Waiting for speech...</div>
+    </div>
+    <div class="panel">
+      <div class="panel-lang" id="panelLang2"></div>
+      <div class="panel-text placeholder" id="panelText2">Waiting for speech...</div>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="mic-dot" id="micDot"></div>
+    <span class="status-text" id="statusText">Initialising...</span>
+    <button class="stop-btn" onclick="stopTranslator()">Stop</button>
+  </div>
+</div>
+<script>
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;let recog=null,isRunning=false,currentListening=1,lang1Config={},lang2Config={},debounceTimer=null;
+function getSelectedLang(s){const o=s.options[s.selectedIndex];return{speechCode:o.value,translateCode:o.dataset.code,name:o.dataset.name}}
+async function translateText(text,toCode){try{const r=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${toCode}&dt=t&q=${encodeURIComponent(text)}`);const d=await r.json();return d[0].map(s=>s[0]).join('')||text}catch(e){return text}}
+function getOrigPanel(){return document.getElementById(currentListening===1?'panelText1':'panelText2')}
+function getTransPanel(){return document.getElementById(currentListening===1?'panelText2':'panelText1')}
+function getCurrentConfig(){return currentListening===1?lang1Config:lang2Config}
+function getOtherConfig(){return currentListening===1?lang2Config:lang1Config}
+function startTranslator(){
+  if(!SpeechRecognition){document.getElementById('errorMsg').textContent='Speech recognition not supported. Please use Chrome.';return}
+  const s1=document.getElementById('lang1'),s2=document.getElementById('lang2');
+  lang1Config=getSelectedLang(s1);lang2Config=getSelectedLang(s2);
+  if(lang1Config.translateCode===lang2Config.translateCode){document.getElementById('errorMsg').textContent='Please select two different languages.';return}
+  document.getElementById('panelLang1').textContent=lang1Config.name;
+  document.getElementById('panelLang2').textContent=lang2Config.name;
+  document.getElementById('panelText1').textContent='Waiting for speech...';
+  document.getElementById('panelText2').textContent='Waiting for speech...';
+  document.getElementById('panelText1').classList.add('placeholder');
+  document.getElementById('panelText2').classList.add('placeholder');
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('translatorScreen').classList.add('active');
+  isRunning=true;currentListening=1;
+  recog=new SpeechRecognition();
+  recog.lang=lang1Config.speechCode;
+  recog.interimResults=true;recog.continuous=true;recog.maxAlternatives=1;
+  let interimTimer=null;
+  recog.onresult=(event)=>{
+    let interim='',newFinal='';
+    for(let i=event.resultIndex;i<event.results.length;i++){
+      const t=event.results[i][0].transcript;
+      if(event.results[i].isFinal){newFinal+=t}else{interim+=t}
+    }
+    const origPanel=getOrigPanel(),transPanel=getTransPanel(),toCode=getOtherConfig().translateCode;
+    const displayText=newFinal||interim;
+    if(displayText.trim()){
+      origPanel.textContent=displayText;origPanel.classList.remove('placeholder');
+      document.getElementById('micDot').classList.add('listening');
+      document.getElementById('statusText').textContent=`Listening for ${getCurrentConfig().name} \u2014 press Space to switch`;
+    }
+    if(interim.trim()){
+      clearTimeout(interimTimer);
+      interimTimer=setTimeout(async()=>{
+        const translated=await translateText(interim.trim(),toCode);
+        if(!newFinal){transPanel.textContent=translated;transPanel.classList.remove('placeholder');transPanel.style.opacity='0.6'}
+      },100);
+    }
+    if(newFinal.trim()){
+      clearTimeout(interimTimer);clearTimeout(debounceTimer);
+      debounceTimer=setTimeout(async()=>{
+        const translated=await translateText(newFinal.trim(),toCode);
+        transPanel.textContent=translated;transPanel.classList.remove('placeholder');transPanel.style.opacity='1';
+      },50);
+    }
+  };
+  recog.onerror=(event)=>{
+    console.error('Recognition error:',event.error);
+    if(event.error==='no-speech'){document.getElementById('micDot').classList.remove('listening');document.getElementById('statusText').textContent=`Waiting for speech (${getCurrentConfig().name})...`}
+  };
+  recog.onend=()=>{if(isRunning){recog.lang=getCurrentConfig().speechCode;try{recog.start()}catch(e){}}};
+  recog.start();
+  document.getElementById('micDot').classList.add('listening');
+  document.getElementById('statusText').textContent=`Listening for ${lang1Config.name} \u2014 press Space to switch`;
+  document.addEventListener('keydown',handleKeyToggle);
+}
+function handleKeyToggle(e){
+  if(e.code==='Space'&&isRunning){
+    e.preventDefault();currentListening=currentListening===1?2:1;
+    document.getElementById('statusText').textContent=`Listening for ${getCurrentConfig().name} \u2014 press Space to switch`;
+  }
+}
+function stopTranslator(){
+  isRunning=false;if(recog){try{recog.stop()}catch(e){}}recog=null;
+  document.removeEventListener('keydown',handleKeyToggle);
+  document.getElementById('translatorScreen').classList.remove('active');
+  document.getElementById('setupScreen').style.display='flex';
+  document.getElementById('micDot').classList.remove('listening');
+}
+</script>
+</body>
+</html>
