@@ -47,24 +47,10 @@
     transition: color 0.5s ease, opacity 1s ease;
   }
 
-  .line.old {
-    color: #888;
-  }
-
-  .line.gone {
-    opacity: 0;
-  }
-
-  .line.typing {
-    font-weight: 500;
-    color: #ffffff;
-    opacity: 1;
-  }
-
-  .line.waiting {
-    font-weight: 300;
-    color: #1a1a1a;
-  }
+  .line.old { color: #888; }
+  .line.gone { opacity: 0; }
+  .line.typing { font-weight: 500; color: #ffffff; opacity: 1; }
+  .line.waiting { font-weight: 300; color: #1a1a1a; }
 
   .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.8rem; border-top: 1px solid #181818; background: #0a0a0a; }
   .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #222; }
@@ -137,6 +123,8 @@
 <script>
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 var rec, on = false, cl = 1, l1, l2, dt, it, sp = false;
+var lastSnapshotText = '';
+var snapshotInterval = null;
 
 function gl(s) { var o = s.options[s.selectedIndex]; return { sc: o.value, tc: o.dataset.code, nm: o.dataset.name }; }
 
@@ -150,20 +138,10 @@ function tL() { return document.getElementById(cl===1?'lines2':'lines1'); }
 function cc() { return cl===1?l1:l2; }
 function oc() { return cl===1?l2:l1; }
 
-// Every line self-destructs on its own timer, independent of anything else
 function scheduleLineRemoval(el) {
-  // At 2s: go grey
-  setTimeout(function() {
-    el.classList.add('old');
-  }, 2000);
-  // At 4s: start fading out
-  setTimeout(function() {
-    el.classList.add('gone');
-  }, 4000);
-  // At 5s: remove from DOM
-  setTimeout(function() {
-    if (el.parentNode) el.remove();
-  }, 5000);
+  setTimeout(function() { el.classList.add('old'); }, 2000);
+  setTimeout(function() { el.classList.add('gone'); }, 4000);
+  setTimeout(function() { if (el.parentNode) el.remove(); }, 5000);
 }
 
 function setTyping(container, text) {
@@ -189,8 +167,40 @@ function commitFinal(container, text) {
   d.className = 'line final';
   d.textContent = text;
   container.appendChild(d);
-  // Start its own independent self-destruct timer
   scheduleLineRemoval(d);
+}
+
+// Force-snapshot: take current typing text, commit it as a final line,
+// and let new typing continue below. Runs every 3s so continuous speech
+// gets broken into chunks that fade independently.
+function forceSnapshot() {
+  var ol = oL(), tl = tL(), to = oc().tc;
+  var typing = ol.querySelector('.line.typing');
+  if (!typing) return;
+  var text = typing.textContent.trim();
+  if (!text || text === lastSnapshotText) return;
+
+  // Commit current text as final (starts its fade timer)
+  lastSnapshotText = text;
+  var d = document.createElement('div');
+  d.className = 'line final';
+  d.textContent = text;
+  ol.insertBefore(d, typing);
+  scheduleLineRemoval(d);
+
+  // Also commit translation side
+  tr(text, to).then(function(x) {
+    var transTyping = tl.querySelector('.line.typing');
+    var td = document.createElement('div');
+    td.className = 'line final';
+    td.textContent = x;
+    if (transTyping) {
+      tl.insertBefore(td, transTyping);
+    } else {
+      tl.appendChild(td);
+    }
+    scheduleLineRemoval(td);
+  });
 }
 
 function go() {
@@ -207,10 +217,14 @@ function go() {
   document.getElementById('trans').classList.add('active');
 
   on = true; cl = 1; sp = false;
+  lastSnapshotText = '';
   rec = new SR();
   rec.lang = l1.sc;
   rec.interimResults = true;
   rec.continuous = true;
+
+  // Snapshot timer: every 3s, commit whatever's on screen
+  snapshotInterval = setInterval(forceSnapshot, 3000);
 
   rec.onresult = function(ev) {
     var im = '', fn = '';
@@ -234,6 +248,7 @@ function go() {
 
     if (fn.trim()) {
       clearTimeout(it); clearTimeout(dt);
+      lastSnapshotText = '';
       commitFinal(ol, fn);
       dt = setTimeout(function() {
         tr(fn.trim(), to).then(function(x) {
@@ -267,6 +282,7 @@ function kh(e) {
     e.preventDefault();
     cl = cl === 1 ? 2 : 1;
     sp = true;
+    lastSnapshotText = '';
     document.getElementById('stat').textContent = 'Switching...';
     try { rec.stop(); } catch(e) {}
   }
@@ -274,6 +290,7 @@ function kh(e) {
 
 function stop() {
   on = false;
+  if (snapshotInterval) { clearInterval(snapshotInterval); snapshotInterval = null; }
   if (rec) try { rec.stop(); } catch(e) {}
   rec = null;
   document.removeEventListener('keydown', kh);
