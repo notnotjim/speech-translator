@@ -25,7 +25,6 @@ select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;col
 .col{flex:1;display:flex;align-items:flex-end;justify-content:center;padding:0 2rem 25vh;overflow:hidden;position:relative}
 .col+.col{border-left:1px solid #1a1a1a}
 
-/* Gradient fade covers top 65% */
 .col::before{
   content:'';
   position:absolute;
@@ -38,14 +37,13 @@ select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;col
 
 .lang-label{position:absolute;top:1.5rem;left:50%;transform:translateX(-50%);font-size:.75rem;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.2em;z-index:3}
 
-/* Bottom line green via gradient on text */
 .live{
   text-align:center;
   font-size:2.4rem;
   font-weight:500;
   line-height:1.4;
   width:90%;
-  background:linear-gradient(to bottom,#fff 0%,#fff calc(100% - 3.36rem),#00e676 calc(100% - 3.36rem),#00e676 100%);
+  background:linear-gradient(to bottom,#fff 0%,#fff calc(100% - 3.36rem),#39FF14 calc(100% - 3.36rem),#39FF14 100%);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
   background-clip:text;
