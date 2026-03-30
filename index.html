@@ -8,360 +8,267 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;500&family=Noto+Sans:wght@300;500&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Noto Sans', 'Noto Sans JP', sans-serif; background: #0a0a0a; color: #f0f0f0; min-height: 100vh; overflow: hidden; }
+
+  /* Setup */
   .setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
   .setup-screen h1 { font-size: 2.4rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
   .setup-screen p { font-size: 1.1rem; color: #888; margin-bottom: 3rem; }
   .lang-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
   .lang-row label { font-size: 1rem; color: #aaa; width: 140px; text-align: right; }
   select { font-family: inherit; font-size: 1.1rem; padding: 0.7rem 1.2rem; background: #1a1a1a; color: #f0f0f0; border: 1px solid #333; border-radius: 8px; width: 260px; cursor: pointer; outline: none; }
-  select:focus { border-color: #666; }
-  .start-btn { margin-top: 2rem; font-family: inherit; font-size: 1.2rem; font-weight: 500; padding: 1rem 3rem; background: #e8e8e8; color: #0a0a0a; border: none; border-radius: 12px; cursor: pointer; letter-spacing: 0.03em; transition: background 0.2s; }
+  .start-btn { margin-top: 2rem; font-family: inherit; font-size: 1.2rem; font-weight: 500; padding: 1rem 3rem; background: #e8e8e8; color: #0a0a0a; border: none; border-radius: 12px; cursor: pointer; }
   .start-btn:hover { background: #fff; }
   .note { margin-top: 1.5rem; font-size: 0.85rem; color: #666; max-width: 400px; text-align: center; line-height: 1.5; }
+  .error-msg { color: #e74c3c; font-size: 0.95rem; margin-top: 1rem; text-align: center; }
+
+  /* Translator */
   .translator-screen { display: none; height: 100vh; flex-direction: column; }
   .translator-screen.active { display: flex; }
-  .panels { flex: 1; display: flex; flex-direction: row; overflow: hidden; }
-  .panel { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
-  .panel:first-child { border-right: 1px solid #222; }
-  .panel-lang { position: absolute; top: 1.5rem; left: 50%; transform: translateX(-50%); font-size: 0.9rem; font-weight: 500; color: #555; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
+  .panels { flex: 1; display: flex; flex-direction: row; }
+  .panel { flex: 1; display: flex; flex-direction: column; position: relative; }
+  .panel:first-child { border-right: 1px solid #1a1a1a; }
+  .panel-lang { position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); font-size: 0.85rem; font-weight: 500; color: #444; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
 
-  /* Caption layout: history on top, active in center */
-  .caption-container {
-    position: absolute;
-    top: 3.5rem;
-    left: 0;
-    right: 0;
-    bottom: 0;
+  /* Previous lines - small, dim, at top */
+  .prev-lines {
+    padding: 3.5rem 2rem 0.5rem;
     display: flex;
     flex-direction: column;
-    padding: 1rem 2.5rem;
-    overflow: hidden;
+    gap: 0.3rem;
   }
-
-  /* Previous lines area - top portion */
-  .history-area {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid #1a1a1a;
-    min-height: 0;
-  }
-
-  .history-line {
-    font-size: 1.3rem;
+  .prev-line {
+    font-size: 1.1rem;
     font-weight: 300;
-    line-height: 1.4;
     text-align: center;
-    color: #444;
-    transition: opacity 0.5s ease;
+    color: #333;
+    line-height: 1.3;
+    transition: color 0.5s;
   }
+  .prev-line:last-child { color: #444; }
 
-  .history-line:last-child {
-    color: #555;
-  }
-
-  /* Active line area - centered in remaining space */
-  .active-area {
+  /* Current line - big, bright, centered */
+  .current-area {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1rem 0;
+    padding: 0 2.5rem;
   }
-
-  .active-text {
-    font-size: 2.8rem;
-    font-weight: 300;
-    line-height: 1.4;
+  .current-text {
+    font-size: 3rem;
+    font-weight: 500;
     text-align: center;
     max-width: 95%;
     word-wrap: break-word;
+    line-height: 1.35;
     color: #ffffff;
-    animation: fadeIn 0.3s ease;
+    transition: color 0.2s;
+  }
+  .current-text.typing {
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 300;
+  }
+  .current-text.waiting {
+    color: #1a1a1a;
+    font-size: 1.5rem;
+    font-weight: 300;
   }
 
-  .active-text.interim {
-    color: rgba(255, 255, 255, 0.45);
-  }
-
-  .active-text.empty {
-    color: #222;
-    font-size: 1.6rem;
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 1rem; border-top: 1px solid #222; background: #0d0d0d; }
-  .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #333; transition: background 0.3s; }
-  .mic-dot.listening { background: #e74c3c; animation: pulse 1.5s ease infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(231,76,60,0); } }
-  .status-text { font-size: 0.85rem; color: #555; }
-  .stop-btn { font-family: inherit; font-size: 0.8rem; padding: 0.4rem 1rem; background: transparent; color: #666; border: 1px solid #333; border-radius: 6px; cursor: pointer; margin-left: 1rem; transition: all 0.2s; }
-  .stop-btn:hover { border-color: #888; color: #aaa; }
-  .error-msg { color: #e74c3c; font-size: 0.95rem; margin-top: 1rem; text-align: center; max-width: 500px; }
+  /* Status bar */
+  .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.8rem; border-top: 1px solid #181818; background: #0a0a0a; }
+  .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #222; }
+  .mic-dot.on { background: #e74c3c; animation: pulse 1.5s ease infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 50% { box-shadow: 0 0 0 8px rgba(231,76,60,0); } }
+  .status-text { font-size: 0.8rem; color: #444; }
+  .stop-btn { font-family: inherit; font-size: 0.75rem; padding: 0.3rem 0.8rem; background: none; color: #555; border: 1px solid #2a2a2a; border-radius: 5px; cursor: pointer; margin-left: 0.5rem; }
 </style>
 </head>
 <body>
-<div class="setup-screen" id="setupScreen">
+
+<div class="setup-screen" id="setup">
   <h1>Live Speech Translator</h1>
   <p>Dual-language live translation for speeches</p>
-  <div class="lang-row">
-    <label>Language 1</label>
+  <div class="lang-row"><label>Language 1</label>
     <select id="lang1">
       <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
       <option value="en-US" data-code="en" data-name="English">English (US)</option>
       <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
-      <option value="zh-CN" data-code="zh" data-name="中文">Chinese (Mandarin)</option>
+      <option value="zh-CN" data-code="zh" data-name="中文">Chinese</option>
       <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
       <option value="fr-FR" data-code="fr" data-name="Français">French</option>
       <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
       <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
       <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
       <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
-      <option value="ru-RU" data-code="ru" data-name="Русский">Russian</option>
-      <option value="ar-SA" data-code="ar" data-name="العربية">Arabic</option>
-      <option value="hi-IN" data-code="hi" data-name="हिन्दी">Hindi</option>
-      <option value="th-TH" data-code="th" data-name="ไทย">Thai</option>
-      <option value="vi-VN" data-code="vi" data-name="Tiếng Việt">Vietnamese</option>
     </select>
   </div>
-  <div class="lang-row">
-    <label>Language 2</label>
+  <div class="lang-row"><label>Language 2</label>
     <select id="lang2">
       <option value="ja" data-code="ja" data-name="日本語">Japanese</option>
       <option value="en-GB" data-code="en" data-name="English">English (UK)</option>
       <option value="en-US" data-code="en" data-name="English">English (US)</option>
-      <option value="zh-CN" data-code="zh" data-name="中文">Chinese (Mandarin)</option>
+      <option value="zh-CN" data-code="zh" data-name="中文">Chinese</option>
       <option value="ko-KR" data-code="ko" data-name="한국어">Korean</option>
       <option value="fr-FR" data-code="fr" data-name="Français">French</option>
       <option value="de-DE" data-code="de" data-name="Deutsch">German</option>
       <option value="es-ES" data-code="es" data-name="Español">Spanish</option>
       <option value="it-IT" data-code="it" data-name="Italiano">Italian</option>
       <option value="pt-BR" data-code="pt" data-name="Português">Portuguese</option>
-      <option value="ru-RU" data-code="ru" data-name="Русский">Russian</option>
-      <option value="ar-SA" data-code="ar" data-name="العربية">Arabic</option>
-      <option value="hi-IN" data-code="hi" data-name="हिन्दी">Hindi</option>
-      <option value="th-TH" data-code="th" data-name="ไทย">Thai</option>
-      <option value="vi-VN" data-code="vi" data-name="Tiếng Việt">Vietnamese</option>
     </select>
   </div>
-  <button class="start-btn" onclick="startTranslator()">Start Listening</button>
-  <div class="note">Uses your device microphone. Works best in Chrome. Press Space to switch between speakers.</div>
-  <div class="error-msg" id="errorMsg"></div>
+  <button class="start-btn" onclick="go()">Start Listening</button>
+  <div class="note">Chrome only. Press Space to switch speaker language.</div>
+  <div class="error-msg" id="err"></div>
 </div>
-<div class="translator-screen" id="translatorScreen">
+
+<div class="translator-screen" id="trans">
   <div class="panels">
     <div class="panel">
-      <div class="panel-lang" id="panelLang1"></div>
-      <div class="caption-container">
-        <div class="history-area" id="history1"></div>
-        <div class="active-area">
-          <div class="active-text empty" id="active1">Waiting for speech...</div>
-        </div>
-      </div>
+      <div class="panel-lang" id="label1"></div>
+      <div class="prev-lines" id="prev1"></div>
+      <div class="current-area"><div class="current-text waiting" id="cur1">Waiting for speech...</div></div>
     </div>
     <div class="panel">
-      <div class="panel-lang" id="panelLang2"></div>
-      <div class="caption-container">
-        <div class="history-area" id="history2"></div>
-        <div class="active-area">
-          <div class="active-text empty" id="active2">Waiting for speech...</div>
-        </div>
-      </div>
+      <div class="panel-lang" id="label2"></div>
+      <div class="prev-lines" id="prev2"></div>
+      <div class="current-area"><div class="current-text waiting" id="cur2">Waiting for speech...</div></div>
     </div>
   </div>
   <div class="status-bar">
-    <div class="mic-dot" id="micDot"></div>
-    <span class="status-text" id="statusText">Initialising...</span>
-    <button class="stop-btn" onclick="stopTranslator()">Stop</button>
+    <div class="mic-dot" id="dot"></div>
+    <span class="status-text" id="stat">...</span>
+    <button class="stop-btn" onclick="stop()">Stop</button>
   </div>
 </div>
+
 <script>
-var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-var recog = null, isRunning = false, currentListening = 1;
-var lang1Config = {}, lang2Config = {}, debounceTimer = null, interimTimer = null;
-var switchPending = false;
-var MAX_HISTORY = 3;
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+var rec, on = false, cl = 1, l1, l2, dt, it, sp = false;
 
-function getSelectedLang(s) {
-  var o = s.options[s.selectedIndex];
-  return { speechCode: o.value, translateCode: o.dataset.code, name: o.dataset.name };
+function gl(s) { var o = s.options[s.selectedIndex]; return { sc: o.value, tc: o.dataset.code, nm: o.dataset.name }; }
+
+async function tr(t, to) {
+  try { var r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+to+'&dt=t&q='+encodeURIComponent(t));
+    var d = await r.json(); return d[0].map(function(x){return x[0]}).join('')||t; } catch(e) { return t; }
 }
 
-async function translateText(text, toCode) {
-  try {
-    var r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + toCode + '&dt=t&q=' + encodeURIComponent(text));
-    var d = await r.json();
-    return d[0].map(function(s) { return s[0]; }).join('') || text;
-  } catch(e) { return text; }
+function oc() { return document.getElementById(cl===1?'cur1':'cur2'); }
+function tc() { return document.getElementById(cl===1?'cur2':'cur1'); }
+function op() { return document.getElementById(cl===1?'prev1':'prev2'); }
+function tp() { return document.getElementById(cl===1?'prev2':'prev1'); }
+function cc() { return cl===1?l1:l2; }
+function oc2() { return cl===1?l2:l1; }
+
+function addPrev(el, txt) {
+  if (!txt || txt === 'Waiting for speech...') return;
+  var d = document.createElement('div');
+  d.className = 'prev-line';
+  d.textContent = txt;
+  el.appendChild(d);
+  var all = el.querySelectorAll('.prev-line');
+  while (all.length > 2) { all[0].remove(); all = el.querySelectorAll('.prev-line'); }
 }
 
-function getOrigActive() { return document.getElementById(currentListening === 1 ? 'active1' : 'active2'); }
-function getTransActive() { return document.getElementById(currentListening === 1 ? 'active2' : 'active1'); }
-function getOrigHistory() { return document.getElementById(currentListening === 1 ? 'history1' : 'history2'); }
-function getTransHistory() { return document.getElementById(currentListening === 1 ? 'history2' : 'history1'); }
-function getCurrentConfig() { return currentListening === 1 ? lang1Config : lang2Config; }
-function getOtherConfig() { return currentListening === 1 ? lang2Config : lang1Config; }
+function go() {
+  if (!SR) { document.getElementById('err').textContent = 'Use Chrome.'; return; }
+  l1 = gl(document.getElementById('lang1'));
+  l2 = gl(document.getElementById('lang2'));
+  if (l1.tc === l2.tc) { document.getElementById('err').textContent = 'Pick two different languages.'; return; }
 
-function pushToHistory(historyEl, text) {
-  var line = document.createElement('div');
-  line.className = 'history-line';
-  line.textContent = text;
-  historyEl.appendChild(line);
+  document.getElementById('label1').textContent = l1.nm;
+  document.getElementById('label2').textContent = l2.nm;
+  document.getElementById('prev1').innerHTML = '';
+  document.getElementById('prev2').innerHTML = '';
+  document.getElementById('cur1').textContent = 'Waiting for speech...';
+  document.getElementById('cur1').className = 'current-text waiting';
+  document.getElementById('cur2').textContent = 'Waiting for speech...';
+  document.getElementById('cur2').className = 'current-text waiting';
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('trans').classList.add('active');
 
-  // Keep only last MAX_HISTORY lines
-  var lines = historyEl.querySelectorAll('.history-line');
-  while (lines.length > MAX_HISTORY) {
-    lines[0].remove();
-    lines = historyEl.querySelectorAll('.history-line');
-  }
-}
+  on = true; cl = 1; sp = false;
+  rec = new SR();
+  rec.lang = l1.sc;
+  rec.interimResults = true;
+  rec.continuous = true;
 
-function attachRecogHandlers() {
-  recog.onresult = function(event) {
-    var interim = '', newFinal = '';
-    for (var i = event.resultIndex; i < event.results.length; i++) {
-      var t = event.results[i][0].transcript;
-      if (event.results[i].isFinal) { newFinal += t; } else { interim += t; }
+  rec.onresult = function(ev) {
+    var im = '', fn = '';
+    for (var i = ev.resultIndex; i < ev.results.length; i++) {
+      if (ev.results[i].isFinal) fn += ev.results[i][0].transcript;
+      else im += ev.results[i][0].transcript;
     }
-    var origActive = getOrigActive();
-    var transActive = getTransActive();
-    var origHistory = getOrigHistory();
-    var transHistory = getTransHistory();
-    var toCode = getOtherConfig().translateCode;
+    var o = oc(), t = tc(), opr = op(), tpr = tp(), to = oc2().tc;
+    document.getElementById('dot').classList.add('on');
+    document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch';
 
-    document.getElementById('micDot').classList.add('listening');
-    document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
-
-    // Interim: show in active area, slightly faded
-    if (interim.trim()) {
-      origActive.textContent = interim;
-      origActive.className = 'active-text interim';
-
-      clearTimeout(interimTimer);
-      interimTimer = setTimeout(function() {
-        translateText(interim.trim(), toCode).then(function(translated) {
-          if (!newFinal) {
-            transActive.textContent = translated;
-            transActive.className = 'active-text interim';
-          }
+    if (im.trim()) {
+      o.textContent = im;
+      o.className = 'current-text typing';
+      clearTimeout(it);
+      it = setTimeout(function() {
+        tr(im.trim(), to).then(function(x) {
+          if (!fn) { t.textContent = x; t.className = 'current-text typing'; }
         });
-      }, 100);
+      }, 120);
     }
 
-    // Final: move current active to history, set new active
-    if (newFinal.trim()) {
-      clearTimeout(interimTimer);
-      clearTimeout(debounceTimer);
+    if (fn.trim()) {
+      clearTimeout(it); clearTimeout(dt);
+      // Move previous current to history
+      if (!o.classList.contains('waiting')) addPrev(opr, o.getAttribute('data-final') || '');
+      o.textContent = fn;
+      o.className = 'current-text';
+      o.setAttribute('data-final', fn);
 
-      // Push previous active text to history (if it had real content)
-      var prevOrigText = origActive.textContent;
-      if (prevOrigText && !origActive.classList.contains('empty') && !origActive.classList.contains('interim')) {
-        pushToHistory(origHistory, prevOrigText);
-      }
-
-      // Set new active original
-      origActive.textContent = newFinal;
-      origActive.className = 'active-text';
-
-      // Translate
-      debounceTimer = setTimeout(function() {
-        translateText(newFinal.trim(), toCode).then(function(translated) {
-          // Push previous translation to history
-          var prevTransText = transActive.textContent;
-          if (prevTransText && !transActive.classList.contains('empty') && !transActive.classList.contains('interim')) {
-            pushToHistory(transHistory, prevTransText);
-          }
-
-          transActive.textContent = translated;
-          transActive.className = 'active-text';
+      dt = setTimeout(function() {
+        if (!t.classList.contains('waiting')) addPrev(tpr, t.getAttribute('data-final') || '');
+        tr(fn.trim(), to).then(function(x) {
+          t.textContent = x;
+          t.className = 'current-text';
+          t.setAttribute('data-final', x);
         });
       }, 50);
     }
   };
 
-  recog.onerror = function(event) {
-    console.error('Recognition error:', event.error);
-    if (event.error === 'no-speech') {
-      document.getElementById('micDot').classList.remove('listening');
-      document.getElementById('statusText').textContent = 'Waiting for speech (' + getCurrentConfig().name + ')...';
+  rec.onerror = function(ev) {
+    if (ev.error === 'no-speech') {
+      document.getElementById('dot').classList.remove('on');
+      document.getElementById('stat').textContent = 'Waiting... (' + cc().nm + ')';
     }
   };
 
-  recog.onend = function() {
-    if (!isRunning) return;
-    if (switchPending) {
-      switchPending = false;
-      recog.lang = getCurrentConfig().speechCode;
-      document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
-    }
-    try { recog.start(); } catch(e) {}
+  rec.onend = function() {
+    if (!on) return;
+    if (sp) { sp = false; rec.lang = cc().sc; document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch'; }
+    try { rec.start(); } catch(e) {}
   };
+
+  rec.start();
+  document.getElementById('dot').classList.add('on');
+  document.getElementById('stat').textContent = l1.nm + ' \u2014 Space to switch';
+  document.addEventListener('keydown', kh);
 }
 
-function startTranslator() {
-  if (!SpeechRecognition) {
-    document.getElementById('errorMsg').textContent = 'Speech recognition not supported. Please use Chrome.';
-    return;
-  }
-  var s1 = document.getElementById('lang1'), s2 = document.getElementById('lang2');
-  lang1Config = getSelectedLang(s1);
-  lang2Config = getSelectedLang(s2);
-  if (lang1Config.translateCode === lang2Config.translateCode) {
-    document.getElementById('errorMsg').textContent = 'Please select two different languages.';
-    return;
-  }
-  document.getElementById('panelLang1').textContent = lang1Config.name;
-  document.getElementById('panelLang2').textContent = lang2Config.name;
-  document.getElementById('history1').innerHTML = '';
-  document.getElementById('history2').innerHTML = '';
-  document.getElementById('active1').textContent = 'Waiting for speech...';
-  document.getElementById('active1').className = 'active-text empty';
-  document.getElementById('active2').textContent = 'Waiting for speech...';
-  document.getElementById('active2').className = 'active-text empty';
-
-  document.getElementById('setupScreen').style.display = 'none';
-  document.getElementById('translatorScreen').classList.add('active');
-  isRunning = true;
-  currentListening = 1;
-  switchPending = false;
-
-  recog = new SpeechRecognition();
-  recog.lang = lang1Config.speechCode;
-  recog.interimResults = true;
-  recog.continuous = true;
-  recog.maxAlternatives = 1;
-  attachRecogHandlers();
-  recog.start();
-
-  document.getElementById('micDot').classList.add('listening');
-  document.getElementById('statusText').textContent = 'Listening for ' + lang1Config.name + ' \u2014 press Space to switch';
-  document.addEventListener('keydown', handleKeyToggle);
-}
-
-function handleKeyToggle(e) {
-  if (e.code === 'Space' && isRunning) {
+function kh(e) {
+  if (e.code === 'Space' && on) {
     e.preventDefault();
-    currentListening = currentListening === 1 ? 2 : 1;
-    switchPending = true;
-    document.getElementById('statusText').textContent = 'Switching to ' + getCurrentConfig().name + '...';
-    try { recog.stop(); } catch(e) {}
+    cl = cl === 1 ? 2 : 1;
+    sp = true;
+    document.getElementById('stat').textContent = 'Switching...';
+    try { rec.stop(); } catch(e) {}
   }
 }
 
-function stopTranslator() {
-  isRunning = false;
-  if (recog) { try { recog.stop(); } catch(e) {} }
-  recog = null;
-  document.removeEventListener('keydown', handleKeyToggle);
-  document.getElementById('translatorScreen').classList.remove('active');
-  document.getElementById('setupScreen').style.display = 'flex';
-  document.getElementById('micDot').classList.remove('listening');
+function stop() {
+  on = false;
+  if (rec) try { rec.stop(); } catch(e) {}
+  rec = null;
+  document.removeEventListener('keydown', kh);
+  document.getElementById('trans').classList.remove('active');
+  document.getElementById('setup').style.display = 'flex';
+  document.getElementById('dot').classList.remove('on');
 }
 </script>
 </body>
