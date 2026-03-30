@@ -81,7 +81,7 @@
     </select>
   </div>
   <button class="start-btn" onclick="startTranslator()">Start Listening</button>
-  <div class="note">Uses your device microphone. Works best in Chrome. Connect to a screen via HDMI for projection.</div>
+  <div class="note">Uses your device microphone. Works best in Chrome. Press Space to switch between speakers.</div>
   <div class="error-msg" id="errorMsg"></div>
 </div>
 <div class="translator-screen" id="translatorScreen">
@@ -102,80 +102,143 @@
   </div>
 </div>
 <script>
-const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;let recog=null,isRunning=false,currentListening=1,lang1Config={},lang2Config={},debounceTimer=null;
-function getSelectedLang(s){const o=s.options[s.selectedIndex];return{speechCode:o.value,translateCode:o.dataset.code,name:o.dataset.name}}
-async function translateText(text,toCode){try{const r=await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${toCode}&dt=t&q=${encodeURIComponent(text)}`);const d=await r.json();return d[0].map(s=>s[0]).join('')||text}catch(e){return text}}
-function getOrigPanel(){return document.getElementById(currentListening===1?'panelText1':'panelText2')}
-function getTransPanel(){return document.getElementById(currentListening===1?'panelText2':'panelText1')}
-function getCurrentConfig(){return currentListening===1?lang1Config:lang2Config}
-function getOtherConfig(){return currentListening===1?lang2Config:lang1Config}
-function startTranslator(){
-  if(!SpeechRecognition){document.getElementById('errorMsg').textContent='Speech recognition not supported. Please use Chrome.';return}
-  const s1=document.getElementById('lang1'),s2=document.getElementById('lang2');
-  lang1Config=getSelectedLang(s1);lang2Config=getSelectedLang(s2);
-  if(lang1Config.translateCode===lang2Config.translateCode){document.getElementById('errorMsg').textContent='Please select two different languages.';return}
-  document.getElementById('panelLang1').textContent=lang1Config.name;
-  document.getElementById('panelLang2').textContent=lang2Config.name;
-  document.getElementById('panelText1').textContent='Waiting for speech...';
-  document.getElementById('panelText2').textContent='Waiting for speech...';
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, isRunning = false, currentListening = 1;
+let lang1Config = {}, lang2Config = {}, debounceTimer = null, interimTimer = null;
+let switchPending = false;
+
+function getSelectedLang(s) {
+  const o = s.options[s.selectedIndex];
+  return { speechCode: o.value, translateCode: o.dataset.code, name: o.dataset.name };
+}
+
+async function translateText(text, toCode) {
+  try {
+    const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' + toCode + '&dt=t&q=' + encodeURIComponent(text));
+    const d = await r.json();
+    return d[0].map(function(s) { return s[0]; }).join('') || text;
+  } catch(e) { return text; }
+}
+
+function getOrigPanel() { return document.getElementById(currentListening === 1 ? 'panelText1' : 'panelText2'); }
+function getTransPanel() { return document.getElementById(currentListening === 1 ? 'panelText2' : 'panelText1'); }
+function getCurrentConfig() { return currentListening === 1 ? lang1Config : lang2Config; }
+function getOtherConfig() { return currentListening === 1 ? lang2Config : lang1Config; }
+
+function attachRecogHandlers() {
+  recog.onresult = function(event) {
+    var interim = '', newFinal = '';
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      var t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) { newFinal += t; } else { interim += t; }
+    }
+    var origPanel = getOrigPanel(), transPanel = getTransPanel();
+    var toCode = getOtherConfig().translateCode;
+    var displayText = newFinal || interim;
+    if (displayText.trim()) {
+      origPanel.textContent = displayText;
+      origPanel.classList.remove('placeholder');
+      document.getElementById('micDot').classList.add('listening');
+      document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
+    }
+    if (interim.trim()) {
+      clearTimeout(interimTimer);
+      interimTimer = setTimeout(function() {
+        translateText(interim.trim(), toCode).then(function(translated) {
+          if (!newFinal) {
+            transPanel.textContent = translated;
+            transPanel.classList.remove('placeholder');
+            transPanel.style.opacity = '0.6';
+          }
+        });
+      }, 100);
+    }
+    if (newFinal.trim()) {
+      clearTimeout(interimTimer);
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        translateText(newFinal.trim(), toCode).then(function(translated) {
+          transPanel.textContent = translated;
+          transPanel.classList.remove('placeholder');
+          transPanel.style.opacity = '1';
+        });
+      }, 50);
+    }
+  };
+
+  recog.onerror = function(event) {
+    console.error('Recognition error:', event.error);
+    if (event.error === 'no-speech') {
+      document.getElementById('micDot').classList.remove('listening');
+      document.getElementById('statusText').textContent = 'Waiting for speech (' + getCurrentConfig().name + ')...';
+    }
+  };
+
+  recog.onend = function() {
+    if (!isRunning) return;
+    if (switchPending) {
+      switchPending = false;
+      recog.lang = getCurrentConfig().speechCode;
+      document.getElementById('statusText').textContent = 'Listening for ' + getCurrentConfig().name + ' \u2014 press Space to switch';
+    }
+    try { recog.start(); } catch(e) {}
+  };
+}
+
+function startTranslator() {
+  if (!SpeechRecognition) {
+    document.getElementById('errorMsg').textContent = 'Speech recognition not supported. Please use Chrome.';
+    return;
+  }
+  var s1 = document.getElementById('lang1'), s2 = document.getElementById('lang2');
+  lang1Config = getSelectedLang(s1);
+  lang2Config = getSelectedLang(s2);
+  if (lang1Config.translateCode === lang2Config.translateCode) {
+    document.getElementById('errorMsg').textContent = 'Please select two different languages.';
+    return;
+  }
+  document.getElementById('panelLang1').textContent = lang1Config.name;
+  document.getElementById('panelLang2').textContent = lang2Config.name;
+  document.getElementById('panelText1').textContent = 'Waiting for speech...';
+  document.getElementById('panelText2').textContent = 'Waiting for speech...';
   document.getElementById('panelText1').classList.add('placeholder');
   document.getElementById('panelText2').classList.add('placeholder');
-  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('translatorScreen').classList.add('active');
-  isRunning=true;currentListening=1;
-  recog=new SpeechRecognition();
-  recog.lang=lang1Config.speechCode;
-  recog.interimResults=true;recog.continuous=true;recog.maxAlternatives=1;
-  let interimTimer=null;
-  recog.onresult=(event)=>{
-    let interim='',newFinal='';
-    for(let i=event.resultIndex;i<event.results.length;i++){
-      const t=event.results[i][0].transcript;
-      if(event.results[i].isFinal){newFinal+=t}else{interim+=t}
-    }
-    const origPanel=getOrigPanel(),transPanel=getTransPanel(),toCode=getOtherConfig().translateCode;
-    const displayText=newFinal||interim;
-    if(displayText.trim()){
-      origPanel.textContent=displayText;origPanel.classList.remove('placeholder');
-      document.getElementById('micDot').classList.add('listening');
-      document.getElementById('statusText').textContent=`Listening for ${getCurrentConfig().name} \u2014 press Space to switch`;
-    }
-    if(interim.trim()){
-      clearTimeout(interimTimer);
-      interimTimer=setTimeout(async()=>{
-        const translated=await translateText(interim.trim(),toCode);
-        if(!newFinal){transPanel.textContent=translated;transPanel.classList.remove('placeholder');transPanel.style.opacity='0.6'}
-      },100);
-    }
-    if(newFinal.trim()){
-      clearTimeout(interimTimer);clearTimeout(debounceTimer);
-      debounceTimer=setTimeout(async()=>{
-        const translated=await translateText(newFinal.trim(),toCode);
-        transPanel.textContent=translated;transPanel.classList.remove('placeholder');transPanel.style.opacity='1';
-      },50);
-    }
-  };
-  recog.onerror=(event)=>{
-    console.error('Recognition error:',event.error);
-    if(event.error==='no-speech'){document.getElementById('micDot').classList.remove('listening');document.getElementById('statusText').textContent=`Waiting for speech (${getCurrentConfig().name})...`}
-  };
-  recog.onend=()=>{if(isRunning){recog.lang=getCurrentConfig().speechCode;try{recog.start()}catch(e){}}};
+  isRunning = true;
+  currentListening = 1;
+  switchPending = false;
+
+  recog = new SpeechRecognition();
+  recog.lang = lang1Config.speechCode;
+  recog.interimResults = true;
+  recog.continuous = true;
+  recog.maxAlternatives = 1;
+  attachRecogHandlers();
   recog.start();
+
   document.getElementById('micDot').classList.add('listening');
-  document.getElementById('statusText').textContent=`Listening for ${lang1Config.name} \u2014 press Space to switch`;
-  document.addEventListener('keydown',handleKeyToggle);
+  document.getElementById('statusText').textContent = 'Listening for ' + lang1Config.name + ' \u2014 press Space to switch';
+  document.addEventListener('keydown', handleKeyToggle);
 }
-function handleKeyToggle(e){
-  if(e.code==='Space'&&isRunning){
-    e.preventDefault();currentListening=currentListening===1?2:1;
-    document.getElementById('statusText').textContent=`Listening for ${getCurrentConfig().name} \u2014 press Space to switch`;
+
+function handleKeyToggle(e) {
+  if (e.code === 'Space' && isRunning) {
+    e.preventDefault();
+    currentListening = currentListening === 1 ? 2 : 1;
+    switchPending = true;
+    document.getElementById('statusText').textContent = 'Switching to ' + getCurrentConfig().name + '...';
+    try { recog.stop(); } catch(e) {}
   }
 }
-function stopTranslator(){
-  isRunning=false;if(recog){try{recog.stop()}catch(e){}}recog=null;
-  document.removeEventListener('keydown',handleKeyToggle);
+
+function stopTranslator() {
+  isRunning = false;
+  if (recog) { try { recog.stop(); } catch(e) {} }
+  recog = null;
+  document.removeEventListener('keydown', handleKeyToggle);
   document.getElementById('translatorScreen').classList.remove('active');
-  document.getElementById('setupScreen').style.display='flex';
+  document.getElementById('setupScreen').style.display = 'flex';
   document.getElementById('micDot').classList.remove('listening');
 }
 </script>
