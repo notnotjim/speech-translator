@@ -27,7 +27,6 @@
   .panel:first-child { border-right: 1px solid #1a1a1a; }
   .panel-lang { position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); font-size: 0.85rem; font-weight: 500; color: #444; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
 
-  /* All lines stack from bottom, flowing upward */
   .lines {
     display: flex;
     flex-direction: column;
@@ -44,7 +43,6 @@
     transition: font-size 0.4s ease, color 0.4s ease, opacity 0.4s ease;
   }
 
-  /* Previous lines - progressively fade */
   .line.prev {
     font-size: 1.6rem;
     font-weight: 300;
@@ -58,19 +56,11 @@
     opacity: 0.85;
   }
 
-  /* Current final line - big bright white */
-  .line.current {
+  /* Current and typing look identical - bold, white, big */
+  .line.current, .line.typing {
     font-size: 2.8rem;
     font-weight: 500;
     color: #ffffff;
-    opacity: 1;
-  }
-
-  /* Currently being spoken - big but faded */
-  .line.typing {
-    font-size: 2.6rem;
-    font-weight: 300;
-    color: rgba(255,255,255,0.35);
     opacity: 1;
   }
 
@@ -165,7 +155,6 @@ function tL() { return document.getElementById(cl===1?'lines2':'lines1'); }
 function cc() { return cl===1?l1:l2; }
 function oc() { return cl===1?l2:l1; }
 
-// Restyle all lines: last .final = current (big white), second-last = prev-recent, rest = prev
 function restyle(container) {
   var finals = container.querySelectorAll('.line.final');
   for (var i = 0; i < finals.length; i++) {
@@ -178,7 +167,6 @@ function restyle(container) {
       finals[i].classList.add('prev');
     }
   }
-  // Trim old lines
   while (finals.length > MAX) {
     finals[0].remove();
     finals = container.querySelectorAll('.line.final');
@@ -186,10 +174,8 @@ function restyle(container) {
 }
 
 function setTyping(container, text) {
-  // Remove waiting placeholder
   var w = container.querySelector('.waiting');
   if (w) w.remove();
-  // Update or create typing line
   var t = container.querySelector('.line.typing');
   if (t) {
     t.textContent = text;
@@ -202,13 +188,10 @@ function setTyping(container, text) {
 }
 
 function commitFinal(container, text) {
-  // Remove waiting
   var w = container.querySelector('.waiting');
   if (w) w.remove();
-  // Remove typing line
   var t = container.querySelector('.line.typing');
   if (t) t.remove();
-  // Add final line
   var d = document.createElement('div');
   d.className = 'line final';
   d.textContent = text;
@@ -245,7 +228,6 @@ function go() {
     document.getElementById('dot').classList.add('on');
     document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch';
 
-    // Interim: show typing state
     if (im.trim()) {
       setTyping(ol, im);
       clearTimeout(it);
@@ -256,7 +238,6 @@ function go() {
       }, 120);
     }
 
-    // Final: commit line
     if (fn.trim()) {
       clearTimeout(it); clearTimeout(dt);
       commitFinal(ol, fn);
