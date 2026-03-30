@@ -37,21 +37,20 @@
     overflow: hidden;
   }
 
-  /* All lines same size - only colour changes */
   .line {
     text-align: center;
     line-height: 1.35;
     font-size: 2.4rem;
     font-weight: 400;
-    transition: color 0.15s ease, opacity 0.15s ease;
+    transition: color 0.15s ease, opacity 0.8s ease;
   }
 
   .line.prev {
-    color: #666;
+    color: #777;
     opacity: 0.5;
   }
   .line.prev-recent {
-    color: #777;
+    color: #888;
     opacity: 0.7;
   }
 
@@ -59,6 +58,11 @@
     font-weight: 500;
     color: #ffffff;
     opacity: 1;
+  }
+
+  .line.fading {
+    opacity: 0 !important;
+    color: #444 !important;
   }
 
   .line.waiting {
@@ -137,7 +141,6 @@
 <script>
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 var rec, on = false, cl = 1, l1, l2, dt, it, sp = false;
-var MAX = 4;
 
 function gl(s) { var o = s.options[s.selectedIndex]; return { sc: o.value, tc: o.dataset.code, nm: o.dataset.name }; }
 
@@ -152,20 +155,37 @@ function cc() { return cl===1?l1:l2; }
 function oc() { return cl===1?l2:l1; }
 
 function restyle(container) {
-  var finals = container.querySelectorAll('.line.final');
+  var finals = container.querySelectorAll('.line.final:not(.fading)');
   for (var i = 0; i < finals.length; i++) {
     finals[i].classList.remove('current', 'prev-recent', 'prev');
     if (i === finals.length - 1) {
       finals[i].classList.add('current');
+      // Cancel any pending fade for the current line
+      if (finals[i]._fadeTimer) { clearTimeout(finals[i]._fadeTimer); finals[i]._fadeTimer = null; }
     } else if (i === finals.length - 2) {
       finals[i].classList.add('prev-recent');
+      // Start fade timer: go grey immediately, fade out after 4s
+      if (!finals[i]._fadeTimer) {
+        (function(el) {
+          el._fadeTimer = setTimeout(function() {
+            el.classList.add('fading');
+            // Remove from DOM after fade animation completes
+            setTimeout(function() { if (el.parentNode) el.remove(); }, 900);
+          }, 4000);
+        })(finals[i]);
+      }
     } else {
       finals[i].classList.add('prev');
+      // Older lines: fade sooner (2s)
+      if (!finals[i]._fadeTimer) {
+        (function(el) {
+          el._fadeTimer = setTimeout(function() {
+            el.classList.add('fading');
+            setTimeout(function() { if (el.parentNode) el.remove(); }, 900);
+          }, 2000);
+        })(finals[i]);
+      }
     }
-  }
-  while (finals.length > MAX) {
-    finals[0].remove();
-    finals = container.querySelectorAll('.line.final');
   }
 }
 
