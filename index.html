@@ -22,9 +22,21 @@ select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;col
 .translator{display:none;height:100vh;flex-direction:column}
 .translator.on{display:flex}
 .cols{flex:1;display:flex}
-.col{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;overflow:hidden;position:relative}
+.col{flex:1;display:flex;align-items:flex-end;justify-content:center;padding:0 2rem 15vh;overflow:hidden;position:relative}
 .col+.col{border-left:1px solid #1a1a1a}
-.lang-label{position:absolute;top:1.5rem;left:50%;transform:translateX(-50%);font-size:.75rem;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.2em}
+
+/* Fade-out gradient at top */
+.col::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:40%;
+  background:linear-gradient(to bottom,#050505 0%,#050505 20%,transparent 100%);
+  z-index:2;
+  pointer-events:none;
+}
+
+.lang-label{position:absolute;top:1.5rem;left:50%;transform:translateX(-50%);font-size:.75rem;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.2em;z-index:3}
 .live{text-align:center;font-size:2.4rem;font-weight:500;color:#fff;line-height:1.4;width:90%}
 .live.idle{font-weight:300;color:#1a1a1a;font-size:1.2rem}
 
