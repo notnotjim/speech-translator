@@ -5,45 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Speech Translator</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;600&display=swap');
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#050505;--live:#fff;--prev:#999;--accent:#c0392b}
-body{font-family:'Outfit','Noto Sans JP',sans-serif;background:var(--bg);color:var(--live);height:100vh;overflow:hidden}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit','Noto Sans JP',sans-serif;background:#050505;color:#fff;height:100vh;overflow:hidden}
+
 .setup{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:2rem}
 .setup h1{font-size:2rem;font-weight:300;letter-spacing:.08em;margin-bottom:.3rem}
 .setup .sub{font-size:.95rem;color:#777;margin-bottom:3rem}
 .row{display:flex;align-items:center;gap:1.2rem;margin-bottom:1.5rem}
 .row label{font-size:.9rem;color:#999;width:110px;text-align:right}
 select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;color:#ccc;border:1px solid #333;border-radius:6px;width:220px;outline:none}
-.go-btn{margin-top:2rem;font-family:inherit;font-size:1.1rem;font-weight:600;padding:.9rem 2.5rem;background:#fff;color:#000;border:none;border-radius:8px;cursor:pointer}
-.go-btn:hover{background:#e0e0e0}
+.go-btn{margin-top:2rem;font-family:inherit;font-size:1.1rem;font-weight:500;padding:.9rem 2.5rem;background:#fff;color:#000;border:none;border-radius:8px;cursor:pointer}
 .hint{margin-top:1.2rem;font-size:.75rem;color:#666;max-width:340px;text-align:center;line-height:1.5}
-.err{color:var(--accent);font-size:.85rem;margin-top:.8rem}
+.err{color:#c0392b;font-size:.85rem;margin-top:.8rem}
+
 .translator{display:none;height:100vh;flex-direction:column}
 .translator.on{display:flex}
 .cols{flex:1;display:flex}
 .col{flex:1;display:flex;flex-direction:column;overflow:hidden}
 .col+.col{border-left:1px solid #1a1a1a}
-.lang-label{flex:0 0 auto;text-align:center;padding:1.2rem 1rem .5rem;font-size:.75rem;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.2em}
-.prev-zone{flex:0 0 30%;display:flex;align-items:flex-end;justify-content:center;padding:0 2rem 1rem;overflow:hidden}
-.prev{text-align:center;line-height:1.4;width:100%;font-size:1.6rem;font-weight:300;color:var(--prev);opacity:1;transition:color .6s ease,font-size .6s ease,font-weight .6s ease,opacity 1.2s ease}
-.prev.arriving{color:var(--live);font-size:2.2rem;font-weight:600;opacity:1;transition:none}
+
+.lang-label{flex:0 0 auto;text-align:center;padding:1.2rem 1rem .5rem;font-size:.75rem;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.2em}
+
+/* Prev zone: top portion */
+.prev-zone{flex:0 0 35%;display:flex;align-items:flex-end;justify-content:center;padding:0 2.5rem 1.5rem;overflow:hidden}
+.prev{text-align:center;line-height:1.4;width:100%;font-size:2rem;font-weight:400;color:#777;opacity:1;transition:color 1s ease,opacity 1.5s ease}
 .prev.hide{opacity:0}
 .prev:empty{visibility:hidden}
-.live-zone{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:1rem 2rem 2rem;overflow:hidden;border-top:1px solid #111}
-.live{text-align:center;font-size:2.2rem;font-weight:600;color:var(--live);line-height:1.4;width:100%}
-.live.idle{font-weight:300;color:#2a2a2a;font-size:1.3rem}
-.bar{display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.6rem;background:var(--bg);border-top:1px solid #151515}
+
+/* Divider */
+.divider{flex:0 0 1px;background:#1a1a1a}
+
+/* Live zone: bottom portion */
+.live-zone{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 2.5rem 2rem;overflow:hidden}
+.live{text-align:center;font-size:2rem;font-weight:500;color:#fff;line-height:1.4;width:100%}
+.live.idle{font-weight:300;color:#1a1a1a;font-size:1.2rem}
+
+.bar{display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.6rem;background:#050505;border-top:1px solid #111}
 .dot{width:8px;height:8px;border-radius:50%;background:#222}
-.dot.on{background:var(--accent);animation:glow 1.8s ease infinite}
-@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.35)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}
+.dot.on{background:#c0392b;animation:g 1.8s ease infinite}
+@keyframes g{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.35)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}
 .bar span{font-size:.7rem;color:#555}
 .bar button{font-family:inherit;font-size:.65rem;padding:.2rem .6rem;background:none;color:#555;border:1px solid #333;border-radius:4px;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="setup" id="S"><h1>Live Speech Translator</h1><div class="sub">Dual-language subtitles for live speeches</div><div class="row"><label>Language 1</label><select id="L1"><option value="en-GB" data-c="en" data-n="English">English (UK)</option><option value="en-US" data-c="en" data-n="English">English (US)</option><option value="ja" data-c="ja" data-n="日本語">Japanese</option><option value="zh-CN" data-c="zh" data-n="中文">Chinese</option><option value="ko-KR" data-c="ko" data-n="한국어">Korean</option><option value="fr-FR" data-c="fr" data-n="Français">French</option><option value="de-DE" data-c="de" data-n="Deutsch">German</option><option value="es-ES" data-c="es" data-n="Español">Spanish</option><option value="it-IT" data-c="it" data-n="Italiano">Italian</option><option value="pt-BR" data-c="pt" data-n="Português">Portuguese</option></select></div><div class="row"><label>Language 2</label><select id="L2"><option value="ja" data-c="ja" data-n="日本語">Japanese</option><option value="en-GB" data-c="en" data-n="English">English (UK)</option><option value="en-US" data-c="en" data-n="English">English (US)</option><option value="zh-CN" data-c="zh" data-n="中文">Chinese</option><option value="ko-KR" data-c="ko" data-n="한국어">Korean</option><option value="fr-FR" data-c="fr" data-n="Français">French</option><option value="de-DE" data-c="de" data-n="Deutsch">German</option><option value="es-ES" data-c="es" data-n="Español">Spanish</option><option value="it-IT" data-c="it" data-n="Italiano">Italian</option><option value="pt-BR" data-c="pt" data-n="Português">Portuguese</option></select></div><button class="go-btn" onclick="start()">Start</button><div class="hint">Chrome only · Space to switch speaker · HDMI to projector</div><div class="err" id="E"></div></div>
-<div class="translator" id="T"><div class="cols"><div class="col"><div class="lang-label" id="N1"></div><div class="prev-zone"><div class="prev" id="P1"></div></div><div class="live-zone"><div class="live idle" id="A1">Waiting for speech…</div></div></div><div class="col"><div class="lang-label" id="N2"></div><div class="prev-zone"><div class="prev" id="P2"></div></div><div class="live-zone"><div class="live idle" id="A2">Waiting for speech…</div></div></div></div><div class="bar"><div class="dot" id="D"></div><span id="ST">…</span><button onclick="end()">Stop</button></div></div>
+<div class="translator" id="T"><div class="cols"><div class="col"><div class="lang-label" id="N1"></div><div class="prev-zone"><div class="prev" id="P1"></div></div><div class="divider"></div><div class="live-zone"><div class="live idle" id="A1">Waiting for speech…</div></div></div><div class="col"><div class="lang-label" id="N2"></div><div class="prev-zone"><div class="prev" id="P2"></div></div><div class="divider"></div><div class="live-zone"><div class="live idle" id="A2">Waiting for speech…</div></div></div></div><div class="bar"><div class="dot" id="D"></div><span id="ST">…</span><button onclick="end()">Stop</button></div></div>
 <script>
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition,r,go=false,side=1,c1,c2,sp=false,iT,dT,snapT,lastSnap='';
 function gl(s){var o=s.options[s.selectedIndex];return{s:o.value,t:o.dataset.c,n:o.dataset.n}}
@@ -59,10 +67,8 @@ if(!text)return;
 if(el._t)clearTimeout(el._t);
 if(el._t2)clearTimeout(el._t2);
 el.classList.remove('hide');
-el.classList.add('arriving');
 el.textContent=text;
-requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.remove('arriving')})});
-el._t=setTimeout(function(){el.classList.add('hide');el._t2=setTimeout(function(){el.textContent='';el.classList.remove('hide')},1300)},4000);
+el._t=setTimeout(function(){el.classList.add('hide');el._t2=setTimeout(function(){el.textContent='';el.classList.remove('hide')},1600)},4000);
 }
 function snap(){
 var a=oA(),p=oP(),ta=tA(),tp=tP();
