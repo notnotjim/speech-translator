@@ -27,16 +27,13 @@ select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;col
 
 .lang-label{flex:0 0 auto;text-align:center;padding:1.2rem 1rem .5rem;font-size:.75rem;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.2em}
 
-/* Prev zone: top portion */
 .prev-zone{flex:0 0 35%;display:flex;align-items:flex-end;justify-content:center;padding:0 2.5rem 1.5rem;overflow:hidden}
 .prev{text-align:center;line-height:1.4;width:100%;font-size:2rem;font-weight:400;color:#777;opacity:1;transition:color 1s ease,opacity 1.5s ease}
 .prev.hide{opacity:0}
 .prev:empty{visibility:hidden}
 
-/* Divider */
 .divider{flex:0 0 1px;background:#1a1a1a}
 
-/* Live zone: bottom portion */
 .live-zone{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 2.5rem 2rem;overflow:hidden}
 .live{text-align:center;font-size:2rem;font-weight:500;color:#fff;line-height:1.4;width:100%}
 .live.idle{font-weight:300;color:#1a1a1a;font-size:1.2rem}
@@ -74,10 +71,10 @@ function snap(){
 var a=oA(),p=oP(),ta=tA(),tp=tP();
 var txt=a.textContent.trim();
 if(!txt||a.classList.contains('idle')||txt===lastSnap)return;
-lastSnap=txt;pushPrev(p,txt);
+lastSnap=txt;
+pushPrev(p,txt);
 var ttxt=ta.textContent.trim();
 if(ttxt&&!ta.classList.contains('idle'))pushPrev(tp,ttxt);
-a.textContent='';ta.textContent='';
 }
 function start(){
 if(!SR){document.getElementById('E').textContent='Use Chrome.';return}
