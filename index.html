@@ -33,89 +33,36 @@
     height: 100vh;
     padding: 2rem;
   }
-  .setup h1 {
-    font-size: 2rem;
-    font-weight: 300;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.3rem;
-  }
-  .setup .sub {
-    font-size: 0.95rem;
-    color: #777;
-    margin-bottom: 3rem;
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 1.2rem;
-    margin-bottom: 1.5rem;
-  }
-  .row label {
-    font-size: 0.9rem;
-    color: #999;
-    width: 110px;
-    text-align: right;
-  }
-  select {
-    font-family: inherit;
-    font-size: 1rem;
-    padding: 0.6rem 1rem;
-    background: #111;
-    color: #ccc;
-    border: 1px solid #333;
-    border-radius: 6px;
-    width: 220px;
-    outline: none;
-  }
-  .go-btn {
-    margin-top: 2rem;
-    font-family: inherit;
-    font-size: 1.1rem;
-    font-weight: 600;
-    padding: 0.9rem 2.5rem;
-    background: #fff;
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-  }
+  .setup h1 { font-size: 2rem; font-weight: 300; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+  .setup .sub { font-size: 0.95rem; color: #777; margin-bottom: 3rem; }
+  .row { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1.5rem; }
+  .row label { font-size: 0.9rem; color: #999; width: 110px; text-align: right; }
+  select { font-family: inherit; font-size: 1rem; padding: 0.6rem 1rem; background: #111; color: #ccc; border: 1px solid #333; border-radius: 6px; width: 220px; outline: none; }
+  .go-btn { margin-top: 2rem; font-family: inherit; font-size: 1.1rem; font-weight: 600; padding: 0.9rem 2.5rem; background: #fff; color: #000; border: none; border-radius: 8px; cursor: pointer; }
   .go-btn:hover { background: #e0e0e0; }
-  .hint {
-    margin-top: 1.2rem;
-    font-size: 0.75rem;
-    color: #666;
-    max-width: 340px;
-    text-align: center;
-    line-height: 1.5;
-  }
+  .hint { margin-top: 1.2rem; font-size: 0.75rem; color: #666; max-width: 340px; text-align: center; line-height: 1.5; }
   .err { color: var(--accent); font-size: 0.85rem; margin-top: 0.8rem; }
 
   /* ═══ TRANSLATOR ═══ */
-  .translator {
-    display: none;
-    height: 100vh;
-    flex-direction: column;
-  }
+  .translator { display: none; height: 100vh; flex-direction: column; }
   .translator.on { display: flex; }
 
-  .cols {
-    flex: 1;
-    display: flex;
-  }
+  .cols { flex: 1; display: flex; }
 
+  /* Each column is a flex column: label, prev zone, live zone */
   .col {
     flex: 1;
-    position: relative;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
   }
   .col + .col { border-left: 1px solid #1a1a1a; }
 
+  /* Language label - fixed small strip */
   .lang-label {
-    position: absolute;
-    top: 1.8rem;
+    flex: 0 0 auto;
+    text-align: center;
+    padding: 1.2rem 1rem 0.5rem;
     font-size: 0.75rem;
     font-weight: 600;
     color: #555;
@@ -123,39 +70,52 @@
     letter-spacing: 0.2em;
   }
 
-  /* ── Previous: one line above centre ── */
+  /* Prev zone - top 30%, holds one fading previous line */
+  .prev-zone {
+    flex: 0 0 30%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 2rem 1rem;
+    overflow: hidden;
+  }
+
   .prev {
-    position: absolute;
-    bottom: calc(50% + 5rem);
-    width: 85%;
     text-align: center;
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 300;
     color: var(--prev);
     line-height: 1.4;
+    width: 100%;
     transition: opacity 1.2s ease;
     opacity: 1;
   }
   .prev.hide { opacity: 0; }
-  .prev:empty { display: none; }
+  .prev:empty { visibility: hidden; }
 
-  /* ── Live: dead centre ── */
+  /* Live zone - bottom 70%, vertically centres the live text */
+  .live-zone {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1rem 2rem 2rem;
+    overflow: hidden;
+    border-top: 1px solid #111;
+  }
+
   .live {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 85%;
     text-align: center;
-    font-size: 2.6rem;
+    font-size: 2.2rem;
     font-weight: 600;
     color: var(--live);
     line-height: 1.4;
+    width: 100%;
   }
   .live.idle {
     font-weight: 300;
     color: #2a2a2a;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
 
   /* ═══ STATUS BAR ═══ */
@@ -168,31 +128,14 @@
     background: var(--bg);
     border-top: 1px solid #151515;
   }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #222;
-  }
-  .dot.on {
-    background: var(--accent);
-    animation: glow 1.8s ease infinite;
-  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #222; }
+  .dot.on { background: var(--accent); animation: glow 1.8s ease infinite; }
   @keyframes glow {
     0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.35); }
     50% { box-shadow: 0 0 0 6px rgba(192,57,43,0); }
   }
   .bar span { font-size: 0.7rem; color: #555; }
-  .bar button {
-    font-family: inherit;
-    font-size: 0.65rem;
-    padding: 0.2rem 0.6rem;
-    background: none;
-    color: #555;
-    border: 1px solid #333;
-    border-radius: 4px;
-    cursor: pointer;
-  }
+  .bar button { font-family: inherit; font-size: 0.65rem; padding: 0.2rem 0.6rem; background: none; color: #555; border: 1px solid #333; border-radius: 4px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -237,13 +180,13 @@
   <div class="cols">
     <div class="col">
       <div class="lang-label" id="N1"></div>
-      <div class="prev" id="P1"></div>
-      <div class="live idle" id="A1">Waiting for speech…</div>
+      <div class="prev-zone"><div class="prev" id="P1"></div></div>
+      <div class="live-zone"><div class="live idle" id="A1">Waiting for speech…</div></div>
     </div>
     <div class="col">
       <div class="lang-label" id="N2"></div>
-      <div class="prev" id="P2"></div>
-      <div class="live idle" id="A2">Waiting for speech…</div>
+      <div class="prev-zone"><div class="prev" id="P2"></div></div>
+      <div class="live-zone"><div class="live idle" id="A2">Waiting for speech…</div></div>
     </div>
   </div>
   <div class="bar">
@@ -297,7 +240,6 @@ function snap() {
   pushPrev(p, txt);
   var ttxt = ta.textContent.trim();
   if (ttxt && !ta.classList.contains('idle')) pushPrev(tp, ttxt);
-  /* Clear live lines so they start fresh */
   a.textContent = '';
   ta.textContent = '';
 }
