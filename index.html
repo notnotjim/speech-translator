@@ -5,11 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Speech Translator</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;500&family=Noto+Sans:wght@300;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Sans:wght@300;400;500&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Noto Sans', 'Noto Sans JP', sans-serif; background: #0a0a0a; color: #f0f0f0; min-height: 100vh; overflow: hidden; }
 
-  /* Setup */
   .setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; }
   .setup-screen h1 { font-size: 2.4rem; font-weight: 300; margin-bottom: 0.5rem; letter-spacing: 0.05em; }
   .setup-screen p { font-size: 1.1rem; color: #888; margin-bottom: 3rem; }
@@ -21,60 +20,66 @@
   .note { margin-top: 1.5rem; font-size: 0.85rem; color: #666; max-width: 400px; text-align: center; line-height: 1.5; }
   .error-msg { color: #e74c3c; font-size: 0.95rem; margin-top: 1rem; text-align: center; }
 
-  /* Translator */
   .translator-screen { display: none; height: 100vh; flex-direction: column; }
   .translator-screen.active { display: flex; }
   .panels { flex: 1; display: flex; flex-direction: row; }
-  .panel { flex: 1; display: flex; flex-direction: column; position: relative; }
+  .panel { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; position: relative; overflow: hidden; }
   .panel:first-child { border-right: 1px solid #1a1a1a; }
   .panel-lang { position: absolute; top: 1.2rem; left: 50%; transform: translateX(-50%); font-size: 0.85rem; font-weight: 500; color: #444; text-transform: uppercase; letter-spacing: 0.15em; z-index: 2; }
 
-  /* Previous lines - small, dim, at top */
-  .prev-lines {
-    padding: 3.5rem 2rem 0.5rem;
+  /* All lines stack from bottom, flowing upward */
+  .lines {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-  }
-  .prev-line {
-    font-size: 1.1rem;
-    font-weight: 300;
-    text-align: center;
-    color: #333;
-    line-height: 1.3;
-    transition: color 0.5s;
-  }
-  .prev-line:last-child { color: #444; }
-
-  /* Current line - big, bright, centered */
-  .current-area {
+    justify-content: flex-end;
+    padding: 4rem 2.5rem 15vh;
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 2.5rem;
-  }
-  .current-text {
-    font-size: 3rem;
-    font-weight: 500;
-    text-align: center;
-    max-width: 95%;
-    word-wrap: break-word;
-    line-height: 1.35;
-    color: #ffffff;
-    transition: color 0.2s;
-  }
-  .current-text.typing {
-    color: rgba(255, 255, 255, 0.4);
-    font-weight: 300;
-  }
-  .current-text.waiting {
-    color: #1a1a1a;
-    font-size: 1.5rem;
-    font-weight: 300;
+    gap: 0.6rem;
+    overflow: hidden;
   }
 
-  /* Status bar */
+  .line {
+    text-align: center;
+    line-height: 1.35;
+    transition: font-size 0.4s ease, color 0.4s ease, opacity 0.4s ease;
+  }
+
+  /* Previous lines - progressively fade */
+  .line.prev {
+    font-size: 1.6rem;
+    font-weight: 300;
+    color: #3a3a3a;
+    opacity: 0.7;
+  }
+  .line.prev-recent {
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: #555;
+    opacity: 0.85;
+  }
+
+  /* Current final line - big bright white */
+  .line.current {
+    font-size: 2.8rem;
+    font-weight: 500;
+    color: #ffffff;
+    opacity: 1;
+  }
+
+  /* Currently being spoken - big but faded */
+  .line.typing {
+    font-size: 2.6rem;
+    font-weight: 300;
+    color: rgba(255,255,255,0.35);
+    opacity: 1;
+  }
+
+  .line.waiting {
+    font-size: 1.6rem;
+    font-weight: 300;
+    color: #1a1a1a;
+  }
+
   .status-bar { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 0.8rem; border-top: 1px solid #181818; background: #0a0a0a; }
   .mic-dot { width: 10px; height: 10px; border-radius: 50%; background: #222; }
   .mic-dot.on { background: #e74c3c; animation: pulse 1.5s ease infinite; }
@@ -125,13 +130,15 @@
   <div class="panels">
     <div class="panel">
       <div class="panel-lang" id="label1"></div>
-      <div class="prev-lines" id="prev1"></div>
-      <div class="current-area"><div class="current-text waiting" id="cur1">Waiting for speech...</div></div>
+      <div class="lines" id="lines1">
+        <div class="line waiting">Waiting for speech...</div>
+      </div>
     </div>
     <div class="panel">
       <div class="panel-lang" id="label2"></div>
-      <div class="prev-lines" id="prev2"></div>
-      <div class="current-area"><div class="current-text waiting" id="cur2">Waiting for speech...</div></div>
+      <div class="lines" id="lines2">
+        <div class="line waiting">Waiting for speech...</div>
+      </div>
     </div>
   </div>
   <div class="status-bar">
@@ -144,6 +151,7 @@
 <script>
 var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 var rec, on = false, cl = 1, l1, l2, dt, it, sp = false;
+var MAX = 4;
 
 function gl(s) { var o = s.options[s.selectedIndex]; return { sc: o.value, tc: o.dataset.code, nm: o.dataset.name }; }
 
@@ -152,21 +160,60 @@ async function tr(t, to) {
     var d = await r.json(); return d[0].map(function(x){return x[0]}).join('')||t; } catch(e) { return t; }
 }
 
-function oc() { return document.getElementById(cl===1?'cur1':'cur2'); }
-function tc() { return document.getElementById(cl===1?'cur2':'cur1'); }
-function op() { return document.getElementById(cl===1?'prev1':'prev2'); }
-function tp() { return document.getElementById(cl===1?'prev2':'prev1'); }
+function oL() { return document.getElementById(cl===1?'lines1':'lines2'); }
+function tL() { return document.getElementById(cl===1?'lines2':'lines1'); }
 function cc() { return cl===1?l1:l2; }
-function oc2() { return cl===1?l2:l1; }
+function oc() { return cl===1?l2:l1; }
 
-function addPrev(el, txt) {
-  if (!txt || txt === 'Waiting for speech...') return;
+// Restyle all lines: last .final = current (big white), second-last = prev-recent, rest = prev
+function restyle(container) {
+  var finals = container.querySelectorAll('.line.final');
+  for (var i = 0; i < finals.length; i++) {
+    finals[i].classList.remove('current', 'prev-recent', 'prev');
+    if (i === finals.length - 1) {
+      finals[i].classList.add('current');
+    } else if (i === finals.length - 2) {
+      finals[i].classList.add('prev-recent');
+    } else {
+      finals[i].classList.add('prev');
+    }
+  }
+  // Trim old lines
+  while (finals.length > MAX) {
+    finals[0].remove();
+    finals = container.querySelectorAll('.line.final');
+  }
+}
+
+function setTyping(container, text) {
+  // Remove waiting placeholder
+  var w = container.querySelector('.waiting');
+  if (w) w.remove();
+  // Update or create typing line
+  var t = container.querySelector('.line.typing');
+  if (t) {
+    t.textContent = text;
+  } else {
+    t = document.createElement('div');
+    t.className = 'line typing';
+    t.textContent = text;
+    container.appendChild(t);
+  }
+}
+
+function commitFinal(container, text) {
+  // Remove waiting
+  var w = container.querySelector('.waiting');
+  if (w) w.remove();
+  // Remove typing line
+  var t = container.querySelector('.line.typing');
+  if (t) t.remove();
+  // Add final line
   var d = document.createElement('div');
-  d.className = 'prev-line';
-  d.textContent = txt;
-  el.appendChild(d);
-  var all = el.querySelectorAll('.prev-line');
-  while (all.length > 2) { all[0].remove(); all = el.querySelectorAll('.prev-line'); }
+  d.className = 'line final';
+  d.textContent = text;
+  container.appendChild(d);
+  restyle(container);
 }
 
 function go() {
@@ -177,12 +224,8 @@ function go() {
 
   document.getElementById('label1').textContent = l1.nm;
   document.getElementById('label2').textContent = l2.nm;
-  document.getElementById('prev1').innerHTML = '';
-  document.getElementById('prev2').innerHTML = '';
-  document.getElementById('cur1').textContent = 'Waiting for speech...';
-  document.getElementById('cur1').className = 'current-text waiting';
-  document.getElementById('cur2').textContent = 'Waiting for speech...';
-  document.getElementById('cur2').className = 'current-text waiting';
+  document.getElementById('lines1').innerHTML = '<div class="line waiting">Waiting for speech...</div>';
+  document.getElementById('lines2').innerHTML = '<div class="line waiting">Waiting for speech...</div>';
   document.getElementById('setup').style.display = 'none';
   document.getElementById('trans').classList.add('active');
 
@@ -198,35 +241,28 @@ function go() {
       if (ev.results[i].isFinal) fn += ev.results[i][0].transcript;
       else im += ev.results[i][0].transcript;
     }
-    var o = oc(), t = tc(), opr = op(), tpr = tp(), to = oc2().tc;
+    var ol = oL(), tl = tL(), to = oc().tc;
     document.getElementById('dot').classList.add('on');
     document.getElementById('stat').textContent = cc().nm + ' \u2014 Space to switch';
 
+    // Interim: show typing state
     if (im.trim()) {
-      o.textContent = im;
-      o.className = 'current-text typing';
+      setTyping(ol, im);
       clearTimeout(it);
       it = setTimeout(function() {
         tr(im.trim(), to).then(function(x) {
-          if (!fn) { t.textContent = x; t.className = 'current-text typing'; }
+          if (!fn) setTyping(tl, x);
         });
       }, 120);
     }
 
+    // Final: commit line
     if (fn.trim()) {
       clearTimeout(it); clearTimeout(dt);
-      // Move previous current to history
-      if (!o.classList.contains('waiting')) addPrev(opr, o.getAttribute('data-final') || '');
-      o.textContent = fn;
-      o.className = 'current-text';
-      o.setAttribute('data-final', fn);
-
+      commitFinal(ol, fn);
       dt = setTimeout(function() {
-        if (!t.classList.contains('waiting')) addPrev(tpr, t.getAttribute('data-final') || '');
         tr(fn.trim(), to).then(function(x) {
-          t.textContent = x;
-          t.className = 'current-text';
-          t.setAttribute('data-final', x);
+          commitFinal(tl, x);
         });
       }, 50);
     }
