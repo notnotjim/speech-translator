@@ -86,19 +86,18 @@ select{font-family:inherit;font-size:1rem;padding:.6rem 1rem;background:#111;col
 <script>
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 var r,on=false,side=1,c1,c2,sp=false;
-var lastSent='',txId=0,ac=null;
+var lastSent='',txId=0,ac=null,watchdog=null;
 
 function gl(s){var o=s.options[s.selectedIndex];return{s:o.value,t:o.dataset.c,n:o.dataset.n}}
 
 async function tx(t,to,id){
-  /* Abort previous in-flight request */
   if(ac)try{ac.abort()}catch(e){}
   ac=new AbortController();
   try{
     var r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+to+'&dt=t&q='+encodeURIComponent(t),{signal:ac.signal});
     var d=await r.json();
     return d[0].map(function(x){return x[0]}).join('')||t;
-  }catch(e){return null} /* null = aborted, don't update */
+  }catch(e){return null}
 }
 
 function oA(){return document.getElementById(side===1?'A1':'A2')}
@@ -115,27 +114,11 @@ function doTranslate(text,ta,to){
   });
 }
 
-function start(){
-  if(!SR){document.getElementById('E').textContent='Use Chrome.';return}
-  c1=gl(document.getElementById('L1'));
-  c2=gl(document.getElementById('L2'));
-  if(c1.t===c2.t){document.getElementById('E').textContent='Pick two different languages.';return}
-
-  /* Warm up the connection to Google Translate */
-  fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ja&dt=t&q=hello',{mode:'cors'}).catch(function(){});
-
-  document.getElementById('N1').textContent=c1.n;
-  document.getElementById('N2').textContent=c2.n;
-  document.getElementById('A1').textContent='Waiting for speech\u2026';
-  document.getElementById('A1').className='live idle';
-  document.getElementById('A2').textContent='Waiting for speech\u2026';
-  document.getElementById('A2').className='live idle';
-  document.getElementById('S').style.display='none';
-  document.getElementById('T').classList.add('on');
-
-  on=true;side=1;sp=false;lastSent='';txId=0;ac=null;
+/* Create a fresh SpeechRecognition instance with all handlers attached */
+function createRecogniser(){
+  if(r)try{r.abort()}catch(e){}
   r=new SR();
-  r.lang=c1.s;
+  r.lang=cur().s;
   r.interimResults=true;
   r.continuous=true;
 
@@ -172,11 +155,58 @@ function start(){
 
   r.onend=function(){
     if(!on)return;
-    if(sp){sp=false;r.lang=cur().s;document.getElementById('ST').textContent=cur().n+' \u2014 Space to switch'}
-    try{r.start()}catch(e){}
+    /* Fresh instance every restart — Chrome handles this better than reusing */
+    setTimeout(function(){
+      if(!on)return;
+      createRecogniser();
+      try{r.start()}catch(e){}
+    },50);
   };
 
+  return r;
+}
+
+/* Watchdog: every 2s, check recognition is alive. If it died silently, force restart. */
+function startWatchdog(){
+  if(watchdog)clearInterval(watchdog);
+  watchdog=setInterval(function(){
+    if(!on)return;
+    try{
+      /* Test if recognition is running by checking its state-like behaviour.
+         If r is null or ended without triggering onend, recreate it. */
+      if(!r){
+        createRecogniser();
+        r.start();
+      }
+    }catch(e){
+      /* If start() throws, it means it's already running — that's fine */
+    }
+  },2000);
+}
+
+function start(){
+  if(!SR){document.getElementById('E').textContent='Use Chrome.';return}
+  c1=gl(document.getElementById('L1'));
+  c2=gl(document.getElementById('L2'));
+  if(c1.t===c2.t){document.getElementById('E').textContent='Pick two different languages.';return}
+
+  fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ja&dt=t&q=hello',{mode:'cors'}).catch(function(){});
+
+  document.getElementById('N1').textContent=c1.n;
+  document.getElementById('N2').textContent=c2.n;
+  document.getElementById('A1').textContent='Waiting for speech\u2026';
+  document.getElementById('A1').className='live idle';
+  document.getElementById('A2').textContent='Waiting for speech\u2026';
+  document.getElementById('A2').className='live idle';
+  document.getElementById('S').style.display='none';
+  document.getElementById('T').classList.add('on');
+
+  on=true;side=1;sp=false;lastSent='';txId=0;ac=null;
+
+  createRecogniser();
   r.start();
+  startWatchdog();
+
   document.getElementById('D').classList.add('on');
   document.getElementById('ST').textContent=c1.n+' \u2014 Space to switch';
   document.addEventListener('keydown',key);
@@ -188,13 +218,22 @@ function key(e){
     side=side===1?2:1;
     sp=true;
     document.getElementById('ST').textContent='Switching\u2026';
-    try{r.stop()}catch(e){}
+    /* Kill old instance, create fresh one with new language */
+    if(r)try{r.abort()}catch(e){}
+    r=null;
+    setTimeout(function(){
+      if(!on)return;
+      createRecogniser();
+      try{r.start()}catch(e){}
+      document.getElementById('ST').textContent=cur().n+' \u2014 Space to switch';
+    },50);
   }
 }
 
 function end(){
   on=false;
-  if(r)try{r.stop()}catch(e){}
+  if(watchdog){clearInterval(watchdog);watchdog=null}
+  if(r)try{r.abort()}catch(e){}
   r=null;
   if(ac)try{ac.abort()}catch(e){}
   document.removeEventListener('keydown',key);
